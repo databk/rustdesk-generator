@@ -9,6 +9,10 @@ on:
       upload-tag:
         type: string
         default: "nightly"
+      build-arch:
+        description: "Comma-separated list of architectures to build (e.g. 'x86_64,aarch64'). Empty or 'all' builds all architectures."
+        type: string
+        default: ""
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -73,6 +77,7 @@ jobs:
   build-for-windows-flutter:
     name: ${{ matrix.job.target }}
     needs: [build-RustDeskTempTopMostWindow, generate-bridge]
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, matrix.job.arch) }}
     runs-on: ${{ matrix.job.os }}
     strategy:
       fail-fast: false
@@ -372,6 +377,7 @@ jobs:
   build-for-windows-sciter:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, matrix.job.arch) }}
     # Temporarily disable this action due to additional test is needed.
     # if: false
     strategy:

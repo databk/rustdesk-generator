@@ -9,6 +9,10 @@ on:
       upload-tag:
         type: string
         default: "nightly"
+      build-arch:
+        description: "Comma-separated list of architectures to build (e.g. 'x86_64,aarch64'). Empty or 'all' builds all architectures."
+        type: string
+        default: ""
 
 env:
   SCITER_RUST_VERSION: "1.75"
@@ -41,6 +45,7 @@ jobs:
     needs: [generate-bridge]
     name: build rustdesk android apk ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, matrix.job.arch) }}
     strategy:
       fail-fast: false
       matrix:
@@ -331,7 +336,7 @@ jobs:
   build-rustdesk-android-universal:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.upload-artifact && (inputs.build-arch == '' || inputs.build-arch == 'all') }}
     runs-on: ubuntu-24.04
     env:
       reltype: release

@@ -9,6 +9,10 @@ on:
       upload-tag:
         type: string
         default: "nightly"
+      build-arch:
+        description: "Comma-separated list of architectures to build. Empty or 'all' builds all architectures."
+        type: string
+        default: ""
 
 env:
   SCITER_RUST_VERSION: "1.75"

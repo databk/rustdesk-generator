@@ -9,6 +9,10 @@ on:
       upload-tag:
         type: string
         default: "nightly"
+      build-arch:
+        description: "Comma-separated list of architectures to build (e.g. 'x86_64,aarch64'). Empty or 'all' builds all architectures."
+        type: string
+        default: ""
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -47,40 +51,52 @@ env:
 
 jobs:
   build-windows:
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, 'x86_64') || contains(inputs.build-arch, 'aarch64') || contains(inputs.build-arch, 'x86') }}
     uses: ./.github/workflows/flutter-build-windows.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
+      build-arch: ${{ inputs.build-arch }}
 
   build-macos:
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, 'x86_64') || contains(inputs.build-arch, 'aarch64') }}
     uses: ./.github/workflows/flutter-build-macos.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
+      build-arch: ${{ inputs.build-arch }}
 
   build-ios:
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, 'aarch64') }}
     uses: ./.github/workflows/flutter-build-ios.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
+      build-arch: ${{ inputs.build-arch }}
 
   build-android:
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, 'aarch64') || contains(inputs.build-arch, 'armv7') || contains(inputs.build-arch, 'x86_64') }}
     uses: ./.github/workflows/flutter-build-android.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
+      build-arch: ${{ inputs.build-arch }}
 
   build-linux:
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, 'x86_64') || contains(inputs.build-arch, 'aarch64') || contains(inputs.build-arch, 'armv7') }}
     uses: ./.github/workflows/flutter-build-linux.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
+      build-arch: ${{ inputs.build-arch }}
 
   build-web:
+    if: ${{ inputs.build-arch == '' || inputs.build-arch == 'all' || contains(inputs.build-arch, 'web') }}
     uses: ./.github/workflows/flutter-build-web.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
+      build-arch: ${{ inputs.build-arch }}
 
   publish_unsigned:
     needs:
