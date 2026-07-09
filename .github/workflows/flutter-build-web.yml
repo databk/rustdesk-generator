@@ -3,20 +3,14 @@ name: Build RustDesk for Web
 on:
   workflow_call:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
+      request_id:
         type: string
-        default: "nightly"
+        default: ""
   workflow_dispatch:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
+      request_id:
         type: string
-        default: "nightly"
+        default: ""
 
 env:
   SCITER_RUST_VERSION: "1.75"
@@ -30,15 +24,13 @@ env:
   ANDROID_FLUTTER_VERSION: "3.24.5"
   FLUTTER_WINDOWS_ARM_VERSION: "3.44.0"
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836"
-  VERSION: "1.4.8"
+  VERSION: "1.4.9"
   NDK_VERSION: "r28c"
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
@@ -56,6 +48,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
+          ref: refs/tags/1.4.9
           submodules: recursive
 
       - name: Prepare env
@@ -106,11 +100,9 @@ jobs:
           sha256sum "${dir_name}".tar.gz
           popd
 
-      - name: Publish web
-        if: env.UPLOAD_ARTIFACT == 'true'
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+      - name: Upload web
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          prerelease: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: |
+          name: rustdesk-${{ env.VERSION }}-${{ env.RELEASE_NAME }}
+          path: |
             flutter/build/rustdesk-${{ env.VERSION }}-${{ env.RELEASE_NAME }}.tar.gz
