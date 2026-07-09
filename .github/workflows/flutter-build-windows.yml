@@ -120,11 +120,10 @@ jobs:
           curl -L -o generator-windows-x86_64.exe https://github.com/databk/rustdesk-generator/releases/download/generator/generator-windows-x86_64.exe
           chmod +x generator-windows-x86_64.exe
 
-      - name: Run executor (post-checkout)
+      - name: Run generator (post-checkout)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe post-checkout
 
       - name: Restore bridge files
@@ -301,11 +300,10 @@ jobs:
               Write-Host "Ingore the printer driver error."
           }
 
-      - name: Run executor (post-build)
+      - name: Run generator (post-build)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe post-build
 
       - name: find Runner.res
@@ -343,11 +341,10 @@ jobs:
           pip3 install requests argparse
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./rustdesk/
 
-      - name: Run executor (sign-files)
+      - name: Run generator (sign-files)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe sign-files
 
       - name: Build self-extracted executable
@@ -384,11 +381,10 @@ jobs:
         run: |
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput
 
-      - name: Run executor (sign-portable)
+      - name: Run generator (sign-portable)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe sign-portable
 
       - name: Upload Release artifacts
