@@ -3,20 +3,14 @@ name: Build RustDesk for iOS
 on:
   workflow_call:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
+      request_id:
         type: string
-        default: "nightly"
+        default: ""
   workflow_dispatch:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
+      request_id:
         type: string
-        default: "nightly"
+        default: ""
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -30,15 +24,15 @@ env:
   ANDROID_FLUTTER_VERSION: "3.24.5"
   FLUTTER_WINDOWS_ARM_VERSION: "3.44.0"
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
+  TAG_NAME: "${{ inputs.request_id }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836"
-  VERSION: "1.4.8"
+  VERSION: "1.4.9"
   NDK_VERSION: "r28c"
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
+  UPLOAD_ARTIFACT: "${{ inputs.request_id }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
@@ -46,7 +40,6 @@ jobs:
     uses: ./.github/workflows/bridge.yml
 
   build-rustdesk-ios:
-    if: ${{ inputs.upload-artifact }}
     name: build rustdesk ios ipa
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -74,6 +67,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
+          ref: refs/tags/1.4.9
           submodules: recursive
 
       - name: Install flutter
