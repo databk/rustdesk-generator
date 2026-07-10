@@ -304,6 +304,7 @@ jobs:
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe post-build
 
       - name: find Runner.res
