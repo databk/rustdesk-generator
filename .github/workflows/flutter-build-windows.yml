@@ -335,13 +335,6 @@ jobs:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: rustdesk
 
-      - name: Sign rustdesk files
-        if: ${{ matrix.job.arch == 'aarch64' && env.SIGN_BASE_URL != '-2' }}
-        shell: bash
-        run: |
-          pip3 install requests argparse
-          BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./rustdesk/
-
       - name: Run generator (sign-files)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
@@ -375,12 +368,6 @@ jobs:
           $msi = Get-ChildItem ./Package/bin/*/Release/en-us/Package.msi | Select-Object -First 1
           mv $msi.FullName ../../SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
           sha256sum ../../SignOutput/rustdesk-*.msi
-
-      - name: Sign rustdesk self-extracted file
-        if: ${{ matrix.job.arch == 'aarch64' && env.SIGN_BASE_URL != '-2' }}
-        shell: bash
-        run: |
-          BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput
 
       - name: Run generator (sign-portable)
         if: ${{ matrix.job.arch == 'x86_64' }}
