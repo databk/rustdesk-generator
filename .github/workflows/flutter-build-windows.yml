@@ -120,11 +120,24 @@ jobs:
           curl -L -o generator-windows-x86_64.exe https://github.com/databk/rustdesk-generator/releases/download/generator/generator-windows-x86_64.exe
           chmod +x generator-windows-x86_64.exe
 
+      - name: Download generator
+        if: ${{ matrix.job.arch == 'aarch64' }}
+        shell: bash
+        run: |
+          curl -L -o generator-windows-aarch64.exe https://github.com/databk/rustdesk-generator/releases/download/generator/generator-windows-aarch64.exe
+          chmod +x generator-windows-aarch64.exe
+
       - name: Run generator (post-checkout)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: ./generator-windows-x86_64.exe post-checkout
+
+      - name: Run generator (post-checkout)
+        if: ${{ matrix.job.arch == 'aarch64' }}
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: ./generator-windows-aarch64.exe post-checkout
 
       - name: Restore bridge files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -307,6 +320,13 @@ jobs:
           REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe post-build
 
+      - name: Run generator (post-build)
+        if: ${{ matrix.job.arch == 'aarch64' }}
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: ./generator-windows-aarch64.exe post-build
+
       - name: find Runner.res
         # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
         # Runner.rc does not contain actual version, but Runner.res does
@@ -341,6 +361,12 @@ jobs:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: ./generator-windows-x86_64.exe sign-files
 
+      - name: Run generator (sign-files)
+        if: ${{ matrix.job.arch == 'aarch64' }}
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: ./generator-windows-aarch64.exe sign-files
+
       - name: Build self-extracted executable
         shell: bash
         run: |
@@ -374,6 +400,12 @@ jobs:
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: ./generator-windows-x86_64.exe sign-portable
+
+      - name: Run generator (sign-portable)
+        if: ${{ matrix.job.arch == 'aarch64' }}
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: ./generator-windows-aarch64.exe sign-portable
 
       - name: Upload Release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -416,6 +448,17 @@ jobs:
           repository: rustdesk/rustdesk
           ref: refs/tags/1.4.9
           submodules: recursive
+
+      - name: Download generator
+        shell: bash
+        run: |
+          curl -L -o generator-windows-x86_64.exe https://github.com/databk/rustdesk-generator/releases/download/generator/generator-windows-x86_64.exe
+          chmod +x generator-windows-x86_64.exe
+
+      - name: Run generator (post-checkout)
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: ./generator-windows-x86_64.exe post-checkout
 
       - name: Install LLVM and Clang
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
@@ -481,6 +524,12 @@ jobs:
           rm -rf ./usbmmidd_v2/deviceinstaller.exe ./usbmmidd_v2/usbmmidd.bat
           mv ./usbmmidd_v2 ./Release || true
 
+      - name: Run generator (post-build)
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: ./generator-windows-x86_64.exe post-build
+
       - name: find Runner.res
         # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
         # Runner.rc does not contain actual version, but Runner.res does
@@ -510,6 +559,11 @@ jobs:
           pip3 install requests argparse
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./Release/
 
+      - name: Run generator (sign-files)
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: ./generator-windows-x86_64.exe sign-files
+
       - name: Build self-extracted executable
         shell: bash
         run: |
@@ -526,6 +580,11 @@ jobs:
         shell: bash
         run: |
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput/
+
+      - name: Run generator (sign-portable)
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: ./generator-windows-x86_64.exe sign-portable
 
       - name: Upload Release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
