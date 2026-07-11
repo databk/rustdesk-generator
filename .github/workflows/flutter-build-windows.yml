@@ -148,12 +148,38 @@ jobs:
           name: ${{ matrix.job.arch == 'aarch64' && 'bridge-artifact-flutter-3.44' || 'bridge-artifact' }}
           path: ./
 
+      - name: Compute source hash
+        id: hash
+        shell: bash
+        run: |
+          SOURCE_HASH=$(find . -type f \
+            -not -path "./.git/*" \
+            -not -path "./target/*" \
+            -not -path "./flutter/build/*" \
+            -not -path "./.dart_tool/*" \
+            -not -path "./.pub-cache/*" \
+            -not -path "./build/*" \
+            | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+          echo "source_hash=$SOURCE_HASH" >> "$GITHUB_OUTPUT"
+          echo "Cache key: rustdesk-build-windows-${{ matrix.job.arch }}-$SOURCE_HASH"
+
+      - name: Restore build cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./rustdesk
+            ./target/release
+          key: rustdesk-build-windows-${{ matrix.job.arch }}-${{ steps.hash.outputs.source_hash }}
+
       - name: Install LLVM and Clang
+        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
         with:
           version: ${{ env.LLVM_VERSION }}
 
       - name: Install flutter
+        if: steps.build-cache.outputs.cache-hit != 'true'
         id: flutter
         # arm64 builds with FLUTTER_WINDOWS_ARM_VERSION (>=3.44); x64 stays on FLUTTER_VERSION.
         # subosito only ships an x64 Windows SDK (Flutter's release manifest lists x64 only),
@@ -172,7 +198,7 @@ jobs:
         # On this native-arm64 runner (PROCESSOR_ARCHITECTURE=ARM64), deleting the stamp and
         # re-running update_dart_sdk.ps1 pulls the arm64 Dart (available since Flutter 3.44.0).
         # https://github.com/flutter/flutter/issues/186730#issuecomment-4573214964
-        if: ${{ matrix.job.arch == 'aarch64' }}
+        if: steps.build-cache.outputs.cache-hit != 'true' && matrix.job.arch == 'aarch64'
         run: |
           $flutterRoot = "${{ steps.flutter.outputs['CACHE-PATH'] }}"
           Write-Host "PROCESSOR_ARCHITECTURE=$env:PROCESSOR_ARCHITECTURE"
@@ -201,7 +227,7 @@ jobs:
       # x64 only: arm64 uses the stock native arm64 Windows engine, and the rustdesk/engine
       # windows-x64-release.zip is built for the 3.24-era x64 engine (matches FLUTTER_VERSION).
       - name: Replace engine with rustdesk custom flutter engine
-        if: ${{ matrix.job.arch == 'x86_64' }}
+        if: steps.build-cache.outputs.cache-hit != 'true' && matrix.job.arch == 'x86_64'
         run: |
           flutter doctor -v
           flutter precache --windows
@@ -212,7 +238,7 @@ jobs:
       - name: Patch flutter
         # x64 stays on Flutter 3.24.5, which needs the dropdown filter patch.
         # arm64 is on Flutter 3.44 (patched separately below) and does not use this patch.
-        if: ${{ matrix.job.arch == 'x86_64' }}
+        if: steps.build-cache.outputs.cache-hit != 'true' && matrix.job.arch == 'x86_64'
         shell: bash
         run: |
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
@@ -223,11 +249,12 @@ jobs:
         # arm64 is the only target on Flutter 3.44; apply its source/pubspec deltas on the fly
         # (shared with the 3.44 bridge job) so the committed sources stay on Flutter 3.24.5.
         # `flutter build` then runs `pub get`, regenerating pubspec.lock for the bumped deps.
-        if: ${{ matrix.job.arch == 'aarch64' }}
+        if: steps.build-cache.outputs.cache-hit != 'true' && matrix.job.arch == 'aarch64'
         shell: bash
         run: bash .github/patches/apply_flutter_3.44_source_patches.sh
 
       - name: Install Rust toolchain
+        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: ${{ env.SCITER_RUST_VERSION }}
@@ -235,10 +262,12 @@ jobs:
           components: "rustfmt"
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        if: steps.build-cache.outputs.cache-hit != 'true'
         with:
           prefix-key: ${{ matrix.job.os }}
 
       - name: Setup vcpkg with Github Actions binary cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
         with:
           vcpkgDirectory: C:\vcpkg
@@ -246,6 +275,7 @@ jobs:
           doNotCache: false
 
       - name: Install vcpkg dependencies
+        if: steps.build-cache.outputs.cache-hit != 'true'
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.job.vcpkg-triplet }}
         run: |
@@ -268,11 +298,12 @@ jobs:
       - name: Set SODIUM_LIB_DIR (arm64)
         # libsodium-sys ships no arm64 Windows prebuilt lib; point it at the vcpkg-built one
         # (only for arm64 — leaving it unset lets x64 use the crate's bundled lib).
-        if: ${{ matrix.job.arch == 'aarch64' }}
+        if: steps.build-cache.outputs.cache-hit != 'true' && matrix.job.arch == 'aarch64'
         shell: bash
         run: echo "SODIUM_LIB_DIR=$VCPKG_ROOT/installed/${{ matrix.job.vcpkg-triplet }}/lib" >> "$GITHUB_ENV"
 
       - name: Build rustdesk
+        if: steps.build-cache.outputs.cache-hit != 'true'
         run: |
           # Windows: build RustDesk
           # --hwcodec is shared by all Windows targets; per-target extras (e.g. --vram) come from the matrix
