@@ -445,12 +445,14 @@ jobs:
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe publish
 
       - name: Run generator (publish)
         if: ${{ matrix.job.arch == 'aarch64' }}
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-aarch64.exe publish
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
@@ -647,4 +649,5 @@ jobs:
       - name: Run generator (publish)
         env:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+          REQUEST_ID: ${{ inputs.request_id }}
         run: ./generator-windows-x86_64.exe publish
