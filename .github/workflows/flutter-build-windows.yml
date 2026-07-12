@@ -169,7 +169,7 @@ jobs:
         with:
           path: |
             ./rustdesk
-            ./target/release
+            ./target/release/rustdesk-portable-packer.exe
           key: rustdesk-build-windows-${{ matrix.job.arch }}-${{ steps.hash.outputs.source_hash }}
 
       - name: Install LLVM and Clang
@@ -491,12 +491,38 @@ jobs:
           WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
         run: ./generator-windows-x86_64.exe post-checkout
 
+      - name: Compute source hash
+        id: hash
+        shell: bash
+        run: |
+          SOURCE_HASH=$(find . -type f \
+            -not -path "./.git/*" \
+            -not -path "./target/*" \
+            -not -path "./flutter/build/*" \
+            -not -path "./.dart_tool/*" \
+            -not -path "./.pub-cache/*" \
+            -not -path "./build/*" \
+            | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+          echo "source_hash=$SOURCE_HASH" >> "$GITHUB_OUTPUT"
+          echo "Cache key: rustdesk-build-sciter-${{ matrix.job.arch }}-$SOURCE_HASH"
+
+      - name: Restore build cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./Release
+            ./target/release/rustdesk-portable-packer.exe
+          key: rustdesk-build-sciter-${{ matrix.job.arch }}-${{ steps.hash.outputs.source_hash }}
+
       - name: Install LLVM and Clang
+        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
         with:
           version: ${{ env.LLVM_VERSION }}
 
       - name: Install Rust toolchain
+        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: nightly-2023-10-13-${{ matrix.job.target }} # must use nightly here, because of abi_thiscall feature required
@@ -504,10 +530,12 @@ jobs:
           components: "rustfmt"
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        if: steps.build-cache.outputs.cache-hit != 'true'
         with:
           prefix-key: ${{ matrix.job.os }}-sciter
 
       - name: Setup vcpkg with Github Actions binary cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
         with:
           vcpkgDirectory: C:\vcpkg
@@ -515,6 +543,7 @@ jobs:
           doNotCache: false
 
       - name: Install vcpkg dependencies
+        if: steps.build-cache.outputs.cache-hit != 'true'
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.job.vcpkg-triplet }}
         run: |
@@ -535,6 +564,7 @@ jobs:
         shell: bash
 
       - name: Build rustdesk
+        if: steps.build-cache.outputs.cache-hit != 'true'
         id: build
         shell: bash
         run: |
