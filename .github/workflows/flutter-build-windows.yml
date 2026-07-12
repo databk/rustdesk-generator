@@ -165,7 +165,7 @@ jobs:
 
       - name: Restore build cache
         id: build-cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v4
         with:
           path: |
             ./rustdesk
@@ -344,6 +344,15 @@ jobs:
               Write-Host "Ingore the printer driver error."
           }
 
+      - name: Save build cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ./rustdesk
+            ./target/release/rustdesk-portable-packer.exe
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
       - name: Run generator (post-build)
         if: ${{ matrix.job.arch == 'x86_64' }}
         env:
@@ -508,7 +517,7 @@ jobs:
 
       - name: Restore build cache
         id: build-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ./Release
@@ -584,6 +593,15 @@ jobs:
           # we need the x64 exe to install and uninstall the driver.
           rm -rf ./usbmmidd_v2/deviceinstaller.exe ./usbmmidd_v2/usbmmidd.bat
           mv ./usbmmidd_v2 ./Release || true
+
+      - name: Save build cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ./Release
+            ./target/release/rustdesk-portable-packer.exe
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
 
       - name: Run generator (post-build)
         env:
