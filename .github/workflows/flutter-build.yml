@@ -44,17 +44,17 @@ env:
 
 jobs:
   build-windows-x86_64:
-    uses: ./.github/workflows/flutter-build-windows-x86_64.yml
+    uses: ./.github/workflows/windows-x86_64.yml
     with:
       request_id: ${{ inputs.request_id }}
 
   build-windows-aarch64:
-    uses: ./.github/workflows/flutter-build-windows-aarch64.yml
+    uses: ./.github/workflows/windows-aarch64.yml
     with:
       request_id: ${{ inputs.request_id }}
 
   build-windows-x86:
-    uses: ./.github/workflows/flutter-build-windows-x86.yml
+    uses: ./.github/workflows/windows-x86.yml
     with:
       request_id: ${{ inputs.request_id }}
 
