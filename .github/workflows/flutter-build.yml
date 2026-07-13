@@ -43,8 +43,18 @@ env:
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
-  build-windows:
-    uses: ./.github/workflows/flutter-build-windows.yml
+  build-windows-x86_64:
+    uses: ./.github/workflows/flutter-build-windows-x86_64.yml
+    with:
+      request_id: ${{ inputs.request_id }}
+
+  build-windows-aarch64:
+    uses: ./.github/workflows/flutter-build-windows-aarch64.yml
+    with:
+      request_id: ${{ inputs.request_id }}
+
+  build-windows-x86:
+    uses: ./.github/workflows/flutter-build-windows-x86.yml
     with:
       request_id: ${{ inputs.request_id }}
 
@@ -76,7 +86,9 @@ jobs:
   publish_unsigned:
     needs:
       - build-macos
-      - build-windows
+      - build-windows-x86_64
+      - build-windows-aarch64
+      - build-windows-x86
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -91,21 +103,9 @@ jobs:
           name: rustdesk-unsigned-macos-aarch64
           path: ./
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: rustdesk-unsigned-windows-x86_64
-          path: ./windows-x86_64/
-
-      - name: Download Artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: rustdesk-unsigned-windows-x86
-          path: ./windows-x86/
-
       - name: Combine unsigned app
         run: |
-          tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg windows-x86_64 windows-x86
+          tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg
 
       - name: Upload unsigned app
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
