@@ -192,10 +192,10 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../Release/ -o . -e ../../Release/rustdesk.exe
+          python3 ./generate.py -f ../../Release/ -o . -e ../../Release/${{ env.APP_NAME }}.exe
           popd
           mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-x86-sciter.exe
+          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/${{ env.APP_NAME }}-${{ env.VERSION }}-x86-sciter.exe
 
       - name: Run generator (sign-portable)
         env:
