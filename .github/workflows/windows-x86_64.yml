@@ -76,7 +76,21 @@ env:
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
+  generate-bridge:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/bridge.yml
+  build-topmostwindow:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
+    with:
+      upload-artifact: true
+      target: windows-2022
+      configuration: Release
+      platform: x64
+      target_version: Windows10
   build-for-windows-flutter:
+    needs: [generate-bridge, build-topmostwindow]
+    if: ${{ !failure() && !cancelled() }}
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     strategy:

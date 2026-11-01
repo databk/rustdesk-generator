@@ -76,7 +76,12 @@ env:
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
+  generate-bridge:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/bridge.yml
   build-rustdesk-linux:
+    needs: [generate-bridge]
+    if: ${{ !failure() && !cancelled() }}
     name: build rustdesk linux ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.on }}
     strategy:
@@ -418,6 +423,8 @@ jobs:
   # old for it. A separate job rather than a matrix entry of build-rustdesk-linux: appimage and
   # flatpak need that job, and a failure here must not skip them.
   build-rustdesk-linux-drm:
+    needs: [generate-bridge]
+    if: ${{ !failure() && !cancelled() }}
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
     steps:
