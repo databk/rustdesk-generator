@@ -89,6 +89,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
           submodules: recursive
 
       - name: Set Swap Space
@@ -414,6 +415,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
           submodules: recursive
 
       - name: Set Swap Space
@@ -739,6 +741,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
           submodules: recursive
 
       - name: Modify vcpkg.json for armv7
@@ -955,6 +958,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
           submodules: recursive
 
       - name: Download Binary
@@ -1023,6 +1027,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          repository: rustdesk/rustdesk
           submodules: recursive
 
       - name: Download Binary
