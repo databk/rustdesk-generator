@@ -13,6 +13,42 @@ on:
         type: boolean
         default: false
 
+  workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: 'Whether to upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+      upload-tag:
+        description: 'Release tag for uploaded artifacts'
+        required: false
+        type: string
+        default: "nightly"
+      publish-update-metadata:
+        description: 'Whether to publish signed update metadata'
+        required: false
+        type: boolean
+        default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: true
+        type: string
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: true
+        type: string
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: true
+        type: string
+      custom-json:
+        description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+
+
 # NOTE: F-Droid builder script 'flutter/build_fdroid.sh' reads environment
 # variables from this workflow!
 #
@@ -268,15 +304,6 @@ jobs:
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
     secrets: inherit
 
-  build-web:
-    needs: [validate-update-metadata-keys]
-    uses: ./.github/workflows/web.yml
-    with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
-    secrets: inherit
-
   publish-signed-update-metadata:
     needs: [build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64]
     runs-on: ubuntu-22.04
@@ -501,3 +528,11 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           files: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
 
+  notify-console:
+    needs: [validate-update-metadata-keys, generate-bridge, build-RustDeskTempTopMostWindow, build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64, build-ios-aarch64, build-android-aarch64, build-android-armv7, build-android-x86_64, build-android-universal, build-linux-x86_64, build-linux-aarch64, build-linux-armv7]
+    uses: ./.github/workflows/notify-console.yml
+    if: always() && github.event_name == 'workflow_dispatch'
+    with:
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
