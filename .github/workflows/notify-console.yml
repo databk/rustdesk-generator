@@ -27,6 +27,15 @@ jobs:
         with:
           path: ./artifacts
 
+      - name: Strip non-product artifacts
+        if: ${{ inputs.build-success }}
+        shell: bash
+        run: |
+          rm -rf ./artifacts/bridge-artifact \
+                 ./artifacts/bridge-artifact-flutter-3.44 \
+                 ./artifacts/topmostwindow-artifacts-x64 \
+                 ./artifacts/topmostwindow-artifacts-ARM64
+
       - name: Notify console
         shell: bash
         run: |
