@@ -13,6 +13,31 @@ on:
         type: boolean
         default: false
 
+  workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: 'Whether to upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: true
+        type: string
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: true
+        type: string
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: true
+        type: string
+      custom-json:
+        description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
   RUST_VERSION: "1.75" # sciter failed on m1 with 1.78 because of https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -466,3 +491,43 @@ jobs:
             ./SignOutput/rustdesk-*.exe
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
+
+  notify-console:
+    needs: [build-for-windows-flutter]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'workflow_dispatch'
+    timeout-minutes: 30
+    steps:
+      - name: Download build artifacts
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Notify console
+        shell: bash
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            curl -fsS -X POST "${{ inputs.callback-url }}" \
+              -H "X-Callback-Token: ${{ inputs.callback-token }}" \
+              -F "status=failed" \
+              -F "message=One or more build jobs failed" || true
+            exit 0
+          fi
+          mkdir -p ./upload
+          find ./artifacts -type f -exec cp -f {} ./upload/ \; 2>/dev/null || true
+          FILES_ARGS=()
+          for f in ./upload/*; do
+            [ -f "$f" ] && FILES_ARGS+=(-F "files=@$f")
+          done
+          if [ "${#FILES_ARGS[@]}" -eq 0 ]; then
+            curl -fsS -X POST "${{ inputs.callback-url }}" \
+              -H "X-Callback-Token: ${{ inputs.callback-token }}" \
+              -F "status=failed" \
+              -F "message=No artifact files found" || true
+            exit 0
+          fi
+          curl -fsS -X POST "${{ inputs.callback-url }}" \
+            -H "X-Callback-Token: ${{ inputs.callback-token }}" \
+            -F "status=completed" \
+            "${FILES_ARGS[@]}"
