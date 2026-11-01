@@ -20,6 +20,16 @@ on:
         required: false
         type: boolean
         default: true
+      upload-tag:
+        description: 'Release tag for uploaded artifacts'
+        required: false
+        type: string
+        default: "nightly"
+      publish-update-metadata:
+        description: 'Whether to publish signed update metadata'
+        required: false
+        type: boolean
+        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: true
