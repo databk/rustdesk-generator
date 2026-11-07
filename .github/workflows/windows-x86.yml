@@ -1,35 +1,133 @@
-name: Build RustDesk for Windows (x86)
+name: Build RustDesk for Windows x86 (sciter)
 
 on:
   workflow_call:
     inputs:
-      request_id:
+      upload-artifact:
+        type: boolean
+        default: true
+      upload-tag:
         type: string
-        default: ""
+        default: "nightly"
+      publish-update-metadata:
+        type: boolean
+        default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: false
+        type: string
+        default: ''
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: false
+        type: string
+        default: ''
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
+
   workflow_dispatch:
     inputs:
-      request_id:
+      upload-artifact:
+        description: 'Whether to upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+      upload-tag:
+        description: 'Release tag for uploaded artifacts'
+        required: false
         type: string
-        default: ""
+        default: "nightly"
+      publish-update-metadata:
+        description: 'Whether to publish signed update metadata'
+        required: false
+        type: boolean
+        default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: true
+        type: string
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: true
+        type: string
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: true
+        type: string
+      custom-json:
+        description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
 
 env:
+  SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
+  RUST_VERSION: "1.75" # sciter failed on m1 with 1.78 because of https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
+  MAC_RUST_VERSION: "1.81" # 1.81 is requred for macos, because of https://github.com/yury/cidre requires 1.81
+  CARGO_NDK_VERSION: "3.1.2"
+  SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
+  SCITER_NASM_DEBVERSION: "2.15.05-1"
   LLVM_VERSION: "15.0.6"
-  # vcpkg version: 2025.08.27
+  FLUTTER_VERSION: "3.24.5"
+  ANDROID_FLUTTER_VERSION: "3.24.5"
+  # Windows arm64 only: the first stable Flutter to ship a native arm64 Windows Dart SDK +
+  # engine is 3.44. Every other platform stays on FLUTTER_VERSION (3.24.5) until Windows 7
+  # support is restored after the upstream-wide Flutter bump. The arm64 job patches the few
+  # 3.44-only source/pubspec changes on the fly (see "Patch RustDesk sources for Flutter 3.44").
+  FLUTTER_WINDOWS_ARM_VERSION: "3.44.9"
+  # for arm64 linux because official Dart SDK does not work
+  FLUTTER_ELINUX_VERSION: "3.16.9"
+  TAG_NAME: "${{ inputs.upload-tag }}"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  # vcpkg version: 2026.07.29
   # If we change the `VCPKG COMMIT_ID`, please remember:
   # 1. Call `$VCPKG_ROOT/vcpkg x-update-baseline` to update the baseline in `vcpkg.json`.
-  #  Or we may face build issue like
+  #  Or we may face build issue like 
   #  https://github.com/rustdesk/rustdesk/actions/runs/14414119794/job/40427970174
   # 2. Update the `VCPKG_COMMIT_ID` in `ci.yml` and `playground.yml`.
-  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
-  VERSION: "1.4.9"
+  VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  VCPKG_CMAKE_VERSION: "4.3.0"
+  ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836" # 2025.01.13, got "/opt/artifacts/vcpkg/vcpkg: No such file or directory" with latest version
+  VERSION: "1.5.1"
+  NDK_VERSION: "r28c"
+  #signing keys env variable checks
+  ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
+  MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
+  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
+  PUBLISH_UPDATE_METADATA: "${{ inputs.publish-update-metadata }}"
+  SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
-  # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
-    name: i686-pc-windows-msvc (windows-2022)
-    runs-on: windows-2022
+    name: ${{ matrix.job.target }} (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
     # if: false
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          # - { target: i686-pc-windows-msvc        , os: windows-2022                  }
+          # - { target: x86_64-pc-windows-gnu       , os: windows-2022                  }
+          - {
+              target: i686-pc-windows-msvc,
+              os: windows-2022,
+              arch: x86,
+              vcpkg-triplet: x86-windows-static,
+            }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
@@ -42,65 +140,48 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: rustdesk/rustdesk
-          ref: refs/tags/1.4.9
           submodules: recursive
 
-      - name: Download generator
+      - name: Fetch custom client config
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
         shell: bash
         run: |
-          curl -L -o generator-windows-x86_64.exe https://github.com/databk/rustdesk-generator/releases/download/generator/generator-windows-x86_64.exe
-          chmod +x generator-windows-x86_64.exe
-
-      - name: Run generator (post-checkout)
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-        run: ./generator-windows-x86_64.exe post-checkout
-
-      - name: Compute source hash
-        id: hash
-        shell: bash
-        run: |
-          SOURCE_HASH=$(find . -type f \
-            -not -path "./.git/*" \
-            -not -path "./target/*" \
-            -not -path "./flutter/build/*" \
-            -not -path "./.dart_tool/*" \
-            -not -path "./.pub-cache/*" \
-            -not -path "./build/*" \
-            | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
-          echo "source_hash=$SOURCE_HASH" >> "$GITHUB_OUTPUT"
-          echo "Cache key: rustdesk-build-sciter-x86-$SOURCE_HASH"
-
-      - name: Restore build cache
-        id: build-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ./Release
-            ./target/release/rustdesk-portable-packer.exe
-          key: rustdesk-build-sciter-x86-${{ steps.hash.outputs.source_hash }}
+          bash .github/scripts/fetch-custom-config.sh \
+            "${{ inputs.config-url }}" \
+            "${{ inputs.callback-token }}" \
+            ./custom-config
+          if [ -f ./custom-config/public-key.txt ]; then
+            PUBKEY=$(cat ./custom-config/public-key.txt)
+            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
+            echo "Replaced public key in src/common.rs"
+          fi
 
       - name: Install LLVM and Clang
-        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
         with:
           version: ${{ env.LLVM_VERSION }}
 
       - name: Install Rust toolchain
-        if: steps.build-cache.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
-        with:
-          toolchain: nightly-2023-10-13-i686-pc-windows-msvc # must use nightly here, because of abi_thiscall feature required
-          targets: i686-pc-windows-msvc
-          components: "rustfmt"
+        shell: bash
+        run: |
+          # Sciter's abi_thiscall feature requires nightly Rust.
+          # Use an i686 host toolchain so build scripts can load the 32-bit LLVM installed above.
+          # Since rustup 1.29.1, i686 toolchains on x64 Windows require --force-non-host
+          # for both installation and default selection, even though WOW64 can run them.
+          # See https://github.com/rust-lang/rustup/pull/4935.
+          # Alternatively, an x64 compiler could use cargo build --target i686-pc-windows-msvc.
+          # This requires 64-bit LLVM for host build scripts and updated packaging paths,
+          # and has not been manually verified for RustDesk.
+          rustup toolchain install nightly-2023-10-13-${{ matrix.job.target }} \
+            --target ${{ matrix.job.target }} --component rustfmt \
+            --profile minimal --no-self-update --force-non-host
+          rustup default nightly-2023-10-13-${{ matrix.job.target }} --force-non-host
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        if: steps.build-cache.outputs.cache-hit != 'true'
         with:
-          prefix-key: windows-2022-sciter
+          prefix-key: ${{ matrix.job.os }}-sciter
 
       - name: Setup vcpkg with Github Actions binary cache
-        if: steps.build-cache.outputs.cache-hit != 'true'
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
         with:
           vcpkgDirectory: C:\vcpkg
@@ -108,13 +189,12 @@ jobs:
           doNotCache: false
 
       - name: Install vcpkg dependencies
-        if: steps.build-cache.outputs.cache-hit != 'true'
         env:
-          VCPKG_DEFAULT_HOST_TRIPLET: x86-windows-static
+          VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.job.vcpkg-triplet }}
         run: |
           if ! $VCPKG_ROOT/vcpkg \
             install \
-            --triplet x86-windows-static \
+            --triplet ${{ matrix.job.vcpkg-triplet }} \
             --x-install-root="$VCPKG_ROOT/installed"; then
             find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
               echo "$_1:"
@@ -125,11 +205,10 @@ jobs:
             done
             exit 1
           fi
-          head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-x86-windows-static-rel-out.log" || true
+          head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-${{ matrix.job.vcpkg-triplet }}-rel-out.log" || true
         shell: bash
 
       - name: Build rustdesk
-        if: steps.build-cache.outputs.cache-hit != 'true'
         id: build
         shell: bash
         run: |
@@ -150,21 +229,6 @@ jobs:
           rm -rf ./usbmmidd_v2/deviceinstaller.exe ./usbmmidd_v2/usbmmidd.bat
           mv ./usbmmidd_v2 ./Release || true
 
-      - name: Save build cache
-        if: steps.build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ./Release
-            ./target/release/rustdesk-portable-packer.exe
-          key: ${{ steps.build-cache.outputs.cache-primary-key }}
-
-      - name: Run generator (post-build)
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          REQUEST_ID: ${{ inputs.request_id }}
-        run: ./generator-windows-x86_64.exe post-build
-
       - name: find Runner.res
         # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
         # Runner.rc does not contain actual version, but Runner.res does
@@ -181,10 +245,78 @@ jobs:
             ls -l ./libs/portable/Runner.res;
           fi
 
-      - name: Run generator (sign-files)
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-        run: ./generator-windows-x86_64.exe sign-files
+      - name: Inject custom client files
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          if [ -f ./custom-config/custom.txt ]; then
+            cp ./custom-config/custom.txt ./Release/custom.txt
+            echo "Injected custom.txt"
+          fi
+          ASSETS_DIR="./Release/data/flutter_assets/assets"
+          mkdir -p "${ASSETS_DIR}"
+          for LOGO in ./custom-config/logos/*; do
+            [ -f "${LOGO}" ] || continue
+            cp "${LOGO}" "${ASSETS_DIR}/$(basename "${LOGO}")"
+            echo "Injected logo: $(basename "${LOGO}")"
+          done
+
+      - name: Upload unsigned
+        if: env.UPLOAD_ARTIFACT == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
+          path: Release
+
+      - name: Sign rustdesk files
+        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        shell: bash
+        run: |
+          pip3 install requests argparse
+          BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./Release/
+
+      - name: Verify Windows Sciter version
+        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA == 'true'
+        shell: powershell
+        run: |
+          $reportedVersion = (& ".\Release\rustdesk.exe" --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "rustdesk --version exited with $LASTEXITCODE"
+          }
+          if ($reportedVersion -cne $env:VERSION) {
+            throw "RustDesk reports version '$reportedVersion', expected '$env:VERSION'"
+          }
+
+      - name: Verify template payload signatures
+        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        shell: powershell
+        run: |
+          Get-ChildItem ./Release -Recurse -File -ErrorAction Stop |
+            Where-Object { $_.Extension -eq '.exe' -or ($_.Extension -eq '.dll' -and $_.FullName -notmatch 'RustDeskPrinterDriver|usbmmidd_v2') } |
+            ForEach-Object {
+              $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName -ErrorAction Stop
+              if ($signature.Status -ne 'Valid') { throw "Invalid template payload signature: $($_.FullName) ($($signature.Status))" }
+            }
+
+      - name: Build template packer
+        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        shell: bash
+        run: |
+          sed -i '/dpiAware/d' res/manifest.xml
+          pushd ./libs/portable
+          pip3 install -r requirements.txt
+          python3 ./generate.py -f ../../Release/ -e rustdesk.exe -l 11 -t "${{ matrix.job.target }}"
+          popd
+          mkdir -p ./packer-template
+          cp ./target/${{ matrix.job.target }}/release/rustdesk-portable-packer.exe ./packer-template/rustdesk-template-${{ matrix.job.arch }}.exe
+
+      - name: Upload unsigned template packer
+        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rustdesk-unsigned-packer-template-${{ matrix.job.arch }}
+          path: ./packer-template
+          if-no-files-found: error
 
       - name: Build self-extracted executable
         shell: bash
@@ -192,18 +324,40 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../Release/ -o . -e ../../Release/${{ env.APP_NAME }}.exe
+          python3 ./generate.py -f ../../Release/ -o . -e ../../Release/rustdesk.exe
           popd
           mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/${{ env.APP_NAME }}-${{ env.VERSION }}-x86-sciter.exe
+          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.exe
 
-      - name: Run generator (sign-portable)
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-        run: ./generator-windows-x86_64.exe sign-portable
+      - name: Sign rustdesk self-extracted file
+        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        shell: bash
+        run: |
+          BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput/
 
-      - name: Run generator (publish)
-        env:
-          WORKFLOW_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-          REQUEST_ID: ${{ inputs.request_id }}
-        run: ./generator-windows-x86_64.exe publish
+      - name: Upload signed Windows Sciter EXE
+        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA == 'true' && env.SIGN_BASE_URL != '-2'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-sciter-x86-exe
+          path: ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.exe
+          if-no-files-found: error
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA != 'true'
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            ./SignOutput/rustdesk-*.exe
+
+
+  notify-console:
+    needs: [build-for-windows-sciter]
+    uses: ./.github/workflows/notify-console.yml
+    if: always() && github.event_name == 'workflow_dispatch'
+    with:
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}

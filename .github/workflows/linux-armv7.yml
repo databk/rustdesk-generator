@@ -1,0 +1,385 @@
+name: Build RustDesk for Linux armv7 (sciter)
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifact:
+        type: boolean
+        default: true
+      upload-tag:
+        type: string
+        default: "nightly"
+      publish-update-metadata:
+        type: boolean
+        default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: false
+        type: string
+        default: ''
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: false
+        type: string
+        default: ''
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
+
+  workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: 'Whether to upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+      upload-tag:
+        description: 'Release tag for uploaded artifacts'
+        required: false
+        type: string
+        default: "nightly"
+      publish-update-metadata:
+        description: 'Whether to publish signed update metadata'
+        required: false
+        type: boolean
+        default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: true
+        type: string
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: true
+        type: string
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: true
+        type: string
+      custom-json:
+        description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
+
+env:
+  SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
+  RUST_VERSION: "1.75" # sciter failed on m1 with 1.78 because of https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
+  MAC_RUST_VERSION: "1.81" # 1.81 is requred for macos, because of https://github.com/yury/cidre requires 1.81
+  CARGO_NDK_VERSION: "3.1.2"
+  SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
+  SCITER_NASM_DEBVERSION: "2.15.05-1"
+  LLVM_VERSION: "15.0.6"
+  FLUTTER_VERSION: "3.24.5"
+  ANDROID_FLUTTER_VERSION: "3.24.5"
+  # Windows arm64 only: the first stable Flutter to ship a native arm64 Windows Dart SDK +
+  # engine is 3.44. Every other platform stays on FLUTTER_VERSION (3.24.5) until Windows 7
+  # support is restored after the upstream-wide Flutter bump. The arm64 job patches the few
+  # 3.44-only source/pubspec changes on the fly (see "Patch RustDesk sources for Flutter 3.44").
+  FLUTTER_WINDOWS_ARM_VERSION: "3.44.9"
+  # for arm64 linux because official Dart SDK does not work
+  FLUTTER_ELINUX_VERSION: "3.16.9"
+  TAG_NAME: "${{ inputs.upload-tag }}"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  # vcpkg version: 2026.07.29
+  # If we change the `VCPKG COMMIT_ID`, please remember:
+  # 1. Call `$VCPKG_ROOT/vcpkg x-update-baseline` to update the baseline in `vcpkg.json`.
+  #  Or we may face build issue like 
+  #  https://github.com/rustdesk/rustdesk/actions/runs/14414119794/job/40427970174
+  # 2. Update the `VCPKG_COMMIT_ID` in `ci.yml` and `playground.yml`.
+  VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  VCPKG_CMAKE_VERSION: "4.3.0"
+  ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836" # 2025.01.13, got "/opt/artifacts/vcpkg/vcpkg: No such file or directory" with latest version
+  VERSION: "1.5.1"
+  NDK_VERSION: "r28c"
+  #signing keys env variable checks
+  ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
+  MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
+  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
+  PUBLISH_UPDATE_METADATA: "${{ inputs.publish-update-metadata }}"
+  SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
+
+jobs:
+  build-rustdesk-linux-sciter:
+    if: ${{ inputs.upload-artifact }}
+    runs-on: ${{ matrix.job.on }}
+    name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # use a high level qemu-user-static
+        job:
+          - {
+              arch: armv7,
+              target: armv7-unknown-linux-gnueabihf,
+              on: ubuntu-22.04-arm,
+              distro: ubuntu18.04-rustdesk,
+              deb_arch: armhf,
+              sciter_arch: arm32,
+              vcpkg-triplet: arm-linux,
+              extra_features: ",unix-file-copy-paste",
+            }
+    steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: rustdesk/rustdesk
+          submodules: recursive
+
+      - name: Fetch custom client config
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          bash .github/scripts/fetch-custom-config.sh \
+            "${{ inputs.config-url }}" \
+            "${{ inputs.callback-token }}" \
+            ./custom-config
+          if [ -f ./custom-config/public-key.txt ]; then
+            PUBKEY=$(cat ./custom-config/public-key.txt)
+            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
+            echo "Replaced public key in src/common.rs"
+          fi
+
+      - name: Modify vcpkg.json for armv7
+        if: matrix.job.vcpkg-triplet == 'arm-linux'
+        run: |
+          # Replace the baseline in vcpkg.json with ARMV7_VCPKG_COMMIT_ID for armv7 builds
+          sed -i 's/"baseline": ".*"/"baseline": "${{ env.ARMV7_VCPKG_COMMIT_ID }}"/' vcpkg.json
+          echo "Modified vcpkg.json for armv7 build:"
+          grep -A 2 -B 2 '"baseline"' vcpkg.json
+
+      - name: Set Swap Space
+        if: matrix.job.arch == 'armv7'
+        uses: pierotofy/set-swap-space@49819abfb41bd9b44fb781159c033dba90353a7c # v1.0
+        with:
+          swap-size-gb: 12
+
+      - name: Free Space
+        run: |
+          df -h
+          free -m
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.SCITER_RUST_VERSION }}
+          targets: ${{ matrix.job.target }}
+          components: "rustfmt"
+
+      - name: Save Rust toolchain version
+        run: |
+          RUST_TOOLCHAIN_VERSION=$(cargo --version | awk '{print $2}')
+          echo "RUST_TOOLCHAIN_VERSION=$RUST_TOOLCHAIN_VERSION" >> $GITHUB_ENV
+
+      - name: Inject custom client files
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          if [ -f ./custom-config/custom.txt ]; then
+            cp ./custom-config/custom.txt ./custom.txt
+            echo "Injected custom.txt"
+          fi
+          ASSETS_DIR="./flutter/assets"
+          mkdir -p "${ASSETS_DIR}"
+          for LOGO in ./custom-config/logos/*; do
+            [ -f "${LOGO}" ] || continue
+            cp "${LOGO}" "${ASSETS_DIR}/$(basename "${LOGO}")"
+            echo "Injected logo: $(basename "${LOGO}")"
+          done
+
+      - uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8 # no release tag; commit 2026-05-26
+        name: Build rustdesk sciter binary for ${{ matrix.job.arch }}
+        id: vcpkg
+        with:
+          arch: ${{ matrix.job.arch }}
+          distro: ${{ matrix.job.distro }}
+          githubToken: ${{ github.token }}
+          setup: |
+            ls -l "${PWD}"
+          dockerRunArgs: |
+            --volume "${PWD}:/workspace"
+          shell: /bin/bash
+          install: |
+            apt-get update
+            apt-get install -y \
+               build-essential \
+               clang \
+               curl \
+               gcc \
+               git \
+               g++ \
+               libayatana-appindicator3-dev \
+               libasound2-dev \
+               libclang-dev \
+               libdbus-1-dev \
+               libglib2.0-dev \
+               libgstreamer1.0-dev \
+               libgstreamer-plugins-base1.0-dev \
+               libgtk-3-dev \
+               liblzma-dev \
+               libpulse-dev \
+               libva-dev \
+               libxcb-randr0-dev \
+               libxcb-shape0-dev \
+               libxcb-xfixes0-dev \
+               libxdo-dev \
+               libxfixes-dev \
+               ninja-build \
+               pkg-config \
+               python3 \
+               python3.7 \
+               rpm \
+               unzip \
+               wget \
+               xz-utils \
+               zip \
+               libssl-dev
+            # arm-linux needs CMake and vcokg built from source as there
+            # are no prebuilts available from Kitware and Microsoft
+            if [ "${{ matrix.job.vcpkg-triplet }}" = "arm-linux" ]; then
+              # install gcc/g++ 8 for vcpkg and OpenSSL headers for CMake
+              apt-get install -y gcc-8 g++-8
+              # bootstrap CMake amd add it to PATH
+              git clone --depth 1 https://github.com/kitware/cmake -b "v${{ env.SCITER_ARMV7_CMAKE_VERSION }}" /tmp/cmake
+              pushd /tmp/cmake
+              ./bootstrap --generator='Unix Makefiles' "--prefix=/opt/cmake-${{ env.SCITER_ARMV7_CMAKE_VERSION }}-linux-armhf"
+              make -j1 install
+              popd
+              rm -rf /tmp/cmake
+              export PATH="/opt/cmake-${{ env.SCITER_ARMV7_CMAKE_VERSION }}-linux-armhf/bin:$PATH"
+            fi
+            # bootstrap vcpkg and set VCPKG_ROOT
+            export VCPKG_ROOT=/opt/artifacts/vcpkg
+            mkdir -p /opt/artifacts
+            pushd /opt/artifacts
+            rm -rf vcpkg
+            git clone https://github.com/microsoft/vcpkg
+            pushd vcpkg
+            # build vcpkg helper executable with gcc-8 for arm-linux but use prebuilt one on x64-linux
+            if [ "${{ matrix.job.vcpkg-triplet }}" = "arm-linux" ]; then
+              git reset --hard ${{ env.ARMV7_VCPKG_COMMIT_ID }}
+              CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 sh bootstrap-vcpkg.sh -disableMetrics
+            else
+              git reset --hard ${{ env.VCPKG_COMMIT_ID }}
+              sh bootstrap-vcpkg.sh -disableMetrics
+            fi
+            popd
+            popd
+            # rust
+            pushd /opt
+            # do not use rustup, because memory overflow in qemu
+            wget --output-document rust.tar.gz https://static.rust-lang.org/dist/rust-${{env.RUST_TOOLCHAIN_VERSION}}-${{ matrix.job.target }}.tar.gz
+            tar -zxvf rust.tar.gz > /dev/null && rm rust.tar.gz
+            pushd rust-${{env.RUST_TOOLCHAIN_VERSION}}-${{ matrix.job.target }}
+            ./install.sh
+            popd
+            rm -rf rust-${{env.RUST_TOOLCHAIN_VERSION}}-${{ matrix.job.target }}
+            popd
+            # install newer nasm for aom
+            wget --output-document nasm.deb "http://ftp.us.debian.org/debian/pool/main/n/nasm/nasm_${{ env.SCITER_NASM_DEBVERSION }}_${{ matrix.job.deb_arch }}.deb"
+            dpkg -i nasm.deb
+            rm -f nasm.deb
+          run: |
+            # disable git safe.directory
+            git config --global --add safe.directory "*"
+            # set python3.7 as default python3
+            update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
+            # add built CMake to PATH and set VCPKG_FORCE_SYSTEM_BINARIES Afor arm-linux
+            if [ "${{ matrix.job.vcpkg-triplet }}" = "arm-linux" ]; then
+              export PATH="/opt/cmake-${{ env.SCITER_ARMV7_CMAKE_VERSION }}-linux-armhf/bin:$PATH"
+              export VCPKG_FORCE_SYSTEM_BINARIES=1
+            fi
+            # edit cargo config
+            mkdir -p ~/.cargo/
+            echo """
+              [source.crates-io]
+              registry = 'sparse+https://index.crates.io/'
+            """ > ~/.cargo/config
+            cat ~/.cargo/config
+            # install dependencies from vcpkg
+            export VCPKG_ROOT=/opt/artifacts/vcpkg
+            # remove this when support higher version
+            export USE_AOM_391=1
+            if ! $VCPKG_ROOT/vcpkg install --triplet ${{ matrix.job.vcpkg-triplet }} --x-install-root="$VCPKG_ROOT/installed"; then
+              find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+                echo "$_1:"
+                echo "======"
+                cat "$_1"
+                echo "======"
+                echo ""
+              done
+              exit 1
+            fi
+            head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-${{ matrix.job.vcpkg-triplet }}-rel-out.log" || true
+            # build rustdesk
+            python3 ./res/inline-sciter.py
+            export CARGO_INCREMENTAL=0
+            # armv7 is the only 32-bit target in this job that links the whole binary, and the
+            # release profile uses fat LTO with codegen-units=1. LLVM then merges every module
+            # into a single unit and runs past the ~3GB address space a 32-bit process gets,
+            # aborting rustc with "Rust cannot catch foreign exceptions" (a C++ bad_alloc from
+            # LLVM unwinding into rustc's Rust frames). Thin LTO keeps peak memory bounded and
+            # still allows cross-crate inlining; 64-bit targets keep fat LTO untouched.
+            if [ "${{ matrix.job.arch }}" = "armv7" ]; then
+              export CARGO_PROFILE_RELEASE_LTO=thin
+              export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+            fi
+            cargo build --locked --features inline${{ matrix.job.extra_features }} --release --bins --jobs 1
+            # make debian package
+            mkdir -p ./Release
+            mv ./target/release/rustdesk ./Release/rustdesk
+            wget -O ./Release/libsciter-gtk.so https://github.com/c-smile/sciter-sdk/raw/master/bin.lnx/${{ matrix.job.sciter_arch }}/libsciter-gtk.so
+            export DEB_ARCH=${{ matrix.job.deb_arch }}
+            ./build.py --package ./Release
+
+      - name: Rename rustdesk
+        shell: bash
+        run: |
+          for name in rustdesk*??.deb; do
+              # use cp to duplicate deb files to fit other packages.
+              cp "$name" "${name%%.deb}-${{ matrix.job.arch }}-sciter.deb"
+          done
+
+      - name: Publish debian package
+        if: env.UPLOAD_ARTIFACT == 'true'
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.deb
+
+      - name: Upload deb
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: env.UPLOAD_ARTIFACT == 'true'
+        with:
+          name: rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.deb
+          path: rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.deb
+
+
+  notify-console:
+    needs: [build-rustdesk-linux-sciter]
+    uses: ./.github/workflows/notify-console.yml
+    if: always() && github.event_name == 'workflow_dispatch'
+    with:
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
