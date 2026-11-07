@@ -12,6 +12,26 @@ on:
       publish-update-metadata:
         type: boolean
         default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: false
+        type: string
+        default: ''
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: false
+        type: string
+        default: ''
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
 
   workflow_dispatch:
     inputs:
@@ -44,6 +64,11 @@ on:
         type: string
       custom-json:
         description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
         required: false
         type: string
         default: ''
@@ -194,6 +219,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-windows-aarch64:
@@ -203,6 +232,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-windows-x86:
@@ -212,6 +245,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-macos-x86_64:
@@ -221,6 +258,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-macos-aarch64:
@@ -230,6 +271,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-ios-aarch64:
@@ -239,6 +284,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-android-aarch64:
@@ -248,6 +297,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-android-armv7:
@@ -257,6 +310,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-android-x86_64:
@@ -266,6 +323,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-android-universal:
@@ -275,6 +336,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-linux-x86_64:
@@ -284,6 +349,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-linux-aarch64:
@@ -293,6 +362,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   build-linux-armv7:
@@ -302,6 +375,10 @@ jobs:
       upload-artifact: ${{ inputs.upload-artifact }}
       upload-tag: ${{ inputs.upload-tag }}
       publish-update-metadata: ${{ inputs.publish-update-metadata }}
+      build-id: ${{ inputs.build-id }}
+      callback-url: ${{ inputs.callback-url }}
+      callback-token: ${{ inputs.callback-token }}
+      config-url: ${{ inputs.config-url }}
     secrets: inherit
 
   publish-signed-update-metadata:

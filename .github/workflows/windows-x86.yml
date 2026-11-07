@@ -12,6 +12,26 @@ on:
       publish-update-metadata:
         type: boolean
         default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: false
+        type: string
+        default: ''
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: false
+        type: string
+        default: ''
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
 
   workflow_dispatch:
     inputs:
@@ -44,6 +64,11 @@ on:
         type: string
       custom-json:
         description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
         required: false
         type: string
         default: ''
@@ -116,6 +141,20 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Fetch custom client config
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          bash .github/scripts/fetch-custom-config.sh \
+            "${{ inputs.config-url }}" \
+            "${{ inputs.callback-token }}" \
+            ./custom-config
+          if [ -f ./custom-config/public-key.txt ]; then
+            PUBKEY=$(cat ./custom-config/public-key.txt)
+            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
+            echo "Replaced public key in src/common.rs"
+          fi
 
       - name: Install LLVM and Clang
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
@@ -205,6 +244,22 @@ jobs:
             echo "list ./libs/portable/Runner.res";
             ls -l ./libs/portable/Runner.res;
           fi
+
+      - name: Inject custom client files
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          if [ -f ./custom-config/custom.txt ]; then
+            cp ./custom-config/custom.txt ./Release/custom.txt
+            echo "Injected custom.txt"
+          fi
+          ASSETS_DIR="./Release/data/flutter_assets/assets"
+          mkdir -p "${ASSETS_DIR}"
+          for LOGO in ./custom-config/logos/*; do
+            [ -f "${LOGO}" ] || continue
+            cp "${LOGO}" "${ASSETS_DIR}/$(basename "${LOGO}")"
+            echo "Injected logo: $(basename "${LOGO}")"
+          done
 
       - name: Upload unsigned
         if: env.UPLOAD_ARTIFACT == 'true'

@@ -12,6 +12,26 @@ on:
       publish-update-metadata:
         type: boolean
         default: false
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: false
+        type: string
+        default: ''
+      callback-url:
+        description: 'Console callback URL to POST build status and artifacts to'
+        required: false
+        type: string
+        default: ''
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
+        required: false
+        type: string
+        default: ''
 
   workflow_dispatch:
     inputs:
@@ -44,6 +64,11 @@ on:
         type: string
       custom-json:
         description: 'Custom client configuration JSON (reserved for future use)'
+        required: false
+        type: string
+        default: ''
+      config-url:
+        description: 'Console URL to fetch signed custom.txt and logo files from'
         required: false
         type: string
         default: ''
@@ -119,6 +144,20 @@ jobs:
           repository: rustdesk/rustdesk
           submodules: recursive
 
+      - name: Fetch custom client config
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          bash .github/scripts/fetch-custom-config.sh \
+            "${{ inputs.config-url }}" \
+            "${{ inputs.callback-token }}" \
+            ./custom-config
+          if [ -f ./custom-config/public-key.txt ]; then
+            PUBKEY=$(cat ./custom-config/public-key.txt)
+            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
+            echo "Replaced public key in src/common.rs"
+          fi
+
       - name: Modify vcpkg.json for armv7
         if: matrix.job.vcpkg-triplet == 'arm-linux'
         run: |
@@ -149,6 +188,22 @@ jobs:
         run: |
           RUST_TOOLCHAIN_VERSION=$(cargo --version | awk '{print $2}')
           echo "RUST_TOOLCHAIN_VERSION=$RUST_TOOLCHAIN_VERSION" >> $GITHUB_ENV
+
+      - name: Inject custom client files
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        shell: bash
+        run: |
+          if [ -f ./custom-config/custom.txt ]; then
+            cp ./custom-config/custom.txt ./custom.txt
+            echo "Injected custom.txt"
+          fi
+          ASSETS_DIR="./flutter/assets"
+          mkdir -p "${ASSETS_DIR}"
+          for LOGO in ./custom-config/logos/*; do
+            [ -f "${LOGO}" ] || continue
+            cp "${LOGO}" "${ASSETS_DIR}/$(basename "${LOGO}")"
+            echo "Injected logo: $(basename "${LOGO}")"
+          done
 
       - uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8 # no release tag; commit 2026-05-26
         name: Build rustdesk sciter binary for ${{ matrix.job.arch }}
