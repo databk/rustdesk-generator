@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: ''
+      skip-notify:
+        description: 'Skip notify-console job (used when called from android-universal)'
+        required: false
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -313,7 +318,7 @@ jobs:
           esac
 
       - name: Upload Rustdesk library to Artifacts
-        if: env.SKIP_BUILD != 'true'
+        if: ${{ !failure() && !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: librustdesk.so.${{ matrix.job.target }}
@@ -449,7 +454,7 @@ jobs:
   notify-console:
     needs: [build-rustdesk-android]
     uses: ./.github/workflows/notify-console.yml
-    if: always() && github.event_name == 'workflow_dispatch'
+    if: always() && github.event_name == 'workflow_dispatch' && !inputs.skip-notify
     with:
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}

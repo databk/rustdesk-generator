@@ -96,9 +96,47 @@ env:
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
-  build-rustdesk-android-universal:
+  generate-bridge:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/bridge.yml
+
+  build-android-aarch64:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: [generate-bridge]
+    uses: ./.github/workflows/android-aarch64.yml
+    with:
+      upload-artifact: false
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+      skip-notify: true
+
+  build-android-armv7:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: [generate-bridge]
+    uses: ./.github/workflows/android-armv7.yml
+    with:
+      upload-artifact: false
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+      skip-notify: true
+
+  build-android-x86_64:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: [generate-bridge]
+    uses: ./.github/workflows/android-x86_64.yml
+    with:
+      upload-artifact: false
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+      skip-notify: true
+
+  build-universal-apk:
+    needs: [build-android-aarch64, build-android-armv7, build-android-x86_64]
+    if: ${{ !failure() && !cancelled() }}
     name: build rustdesk android universal apk
-    if: ${{ inputs.upload-artifact }}
     runs-on: ubuntu-24.04
     env:
       reltype: release
@@ -171,11 +209,6 @@ jobs:
             "${{ inputs.backend-url }}/config" \
             "${{ inputs.callback-token }}" \
             ./custom-config
-          if [ -f ./custom-config/public-key.txt ]; then
-            PUBKEY=$(cat ./custom-config/public-key.txt)
-            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
-            echo "Replaced public key in src/common.rs"
-          fi
 
       - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1
         id: setup-ndk
@@ -197,62 +230,30 @@ jobs:
             git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
           fi
 
-      - name: Restore bridge files
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: bridge-artifact
-          path: ./
-
       - name: Download Rustdesk library from Artifacts
-        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: librustdesk.so.aarch64-linux-android
           path: ./flutter/android/app/src/main/jniLibs/arm64-v8a
 
       - name: Download Rustdesk library from Artifacts
-        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: librustdesk.so.armv7-linux-androideabi
           path: ./flutter/android/app/src/main/jniLibs/armeabi-v7a
 
       - name: Download Rustdesk library from Artifacts
-        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: librustdesk.so.x86_64-linux-android
           path: ./flutter/android/app/src/main/jniLibs/x86_64
 
       - name: Download Rustdesk library from Artifacts
-        if: ${{ github.event_name != 'workflow_dispatch' && env.reltype == 'debug' }}
+        if: ${{ env.reltype == 'debug' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: librustdesk.so.i686-linux-android
           path: ./flutter/android/app/src/main/jniLibs/x86
-
-      - name: Download base build libraries
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for ARCH_TAG in aarch64 armv7 x86_64; do
-            TAG="base-android-${ARCH_TAG}"
-            if gh release download "$TAG" -R "${{ github.repository }}" -D ./base-build-${ARCH_TAG} --clobber 2>/dev/null; then
-              tar xzf ./base-build-${ARCH_TAG}/rustdesk-base-android-${ARCH_TAG}.tar.gz
-              echo "Downloaded base build for ${ARCH_TAG}"
-            else
-              echo "ERROR: No base build found for ${ARCH_TAG}. Please build individual Android architectures first."
-              exit 1
-            fi
-          done
-          mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
-          cp ./target/aarch64-linux-android/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/liblibrustdesk.so
-          mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
-          cp ./target/armv7-linux-androideabi/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/liblibrustdesk.so
-          mkdir -p ./flutter/android/app/src/main/jniLibs/x86_64
-          cp ./target/x86_64-linux-android/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/x86_64/liblibrustdesk.so
 
       - name: Inject custom client files
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
@@ -323,7 +324,7 @@ jobs:
         if: env.ANDROID_SIGNING_KEY != null && env.UPLOAD_ARTIFACT == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.apk
+          name: rustdesk-${{ env.VERSION }}-universal.apk
           path: ${{steps.sign-rustdesk.outputs.signedReleaseFile}}
 
       - name: Publish signed apk package
@@ -346,11 +347,10 @@ jobs:
 
 
   notify-console:
-    needs: [build-rustdesk-android-universal]
+    needs: [build-universal-apk]
     uses: ./.github/workflows/notify-console.yml
     if: always() && github.event_name == 'workflow_dispatch'
     with:
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
-      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
-
+      build-success: ${{ needs.build-universal-apk.result == 'success' }}
