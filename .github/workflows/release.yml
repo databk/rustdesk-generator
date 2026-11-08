@@ -53,11 +53,29 @@ jobs:
             exit 1
           fi
 
-  build:
-    name: Build
+  build-binaries:
+    name: Build Binary (${{ matrix.target }})
     needs: prepare
     if: needs.prepare.outputs.skipped != 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-13
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,15 +92,45 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> $GITHUB_ENV
+
+      - name: Build backend
+        run: cargo build --release --target ${{ matrix.target }} --manifest-path backend/Cargo.toml
+
+      - name: Package binary (Unix)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          cd backend/target/${{ matrix.target }}/release
+          tar -czf ../../../rustdesk-generator-${{ matrix.target }}.tar.gz rustdesk-generator-backend
+
+      - name: Package binary (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path backend/target/${{ matrix.target }}/release/rustdesk-generator-backend.exe -DestinationPath rustdesk-generator-${{ matrix.target }}.zip
+
       - uses: actions/upload-artifact@v4
         with:
-          name: frontend-dist
-          path: frontend/out/
+          name: binary-${{ matrix.target }}
+          path: |
+            backend/target/*/release/rustdesk-generator-${{ matrix.target }}.tar.gz
+            backend/target/*/release/rustdesk-generator-${{ matrix.target }}.zip
+            rustdesk-generator-${{ matrix.target }}.tar.gz
+            rustdesk-generator-${{ matrix.target }}.zip
           retention-days: 30
 
   release:
     name: Create GitHub Release
-    needs: [prepare, build]
+    needs: [prepare, build-binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,12 +139,9 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: frontend-dist
-          path: frontend/out/
-
-      - name: Create release archive
-        run: |
-          tar -czf rustdesk-generator-${{ needs.prepare.outputs.version }}.tar.gz frontend/out/
+          pattern: binary-*
+          path: binaries/
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -104,21 +149,16 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.version }}
           name: ${{ needs.prepare.outputs.version }}
           body_path: CHANGELOG.md
-          files: rustdesk-generator-${{ needs.prepare.outputs.version }}.tar.gz
+          files: binaries/*
 
   docker:
     name: Docker Release
-    needs: [prepare, build]
+    needs: [prepare, build-binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/out/
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v4
