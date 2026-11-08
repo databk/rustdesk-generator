@@ -162,14 +162,6 @@ jobs:
           syft dir:. \
             -o cyclonedx-json=rustdesk.sbom.json
 
-      - name: Publish Release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        if: env.UPLOAD_ARTIFACT == 'true'
-        with:
-          prerelease: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: |
-            rustdesk.sbom.json
 
   generate-bridge:
     needs: [validate-update-metadata-keys]
@@ -570,12 +562,6 @@ jobs:
           fi
           tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg windows-x86_64 windows-aarch64 windows-x86 msi-template "${packer_template[@]}"
 
-      - name: Publish unsigned app
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          prerelease: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
 
   notify-console:
     needs: [validate-update-metadata-keys, generate-bridge, build-RustDeskTempTopMostWindow, build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64, build-ios-aarch64, build-android-aarch64, build-android-armv7, build-android-x86_64, build-android-universal, build-linux-x86_64, build-linux-aarch64, build-linux-armv7]
