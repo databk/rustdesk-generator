@@ -8,7 +8,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build backend
-FROM rust:1.82-slim AS backend-builder
+FROM rust:1.85-slim AS backend-builder
 
 WORKDIR /app/backend
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
