@@ -3,8 +3,8 @@ name: Notify Console
 on:
   workflow_call:
     inputs:
-      callback-url:
-        description: 'Console callback URL to POST build status and artifacts to'
+      backend-url:
+        description: 'Console backend URL (base path for callback and config endpoints)'
         required: true
         type: string
       callback-token:
@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ inputs.build-success }}" != "true" ]; then
-            curl -fsS -X POST "${{ inputs.callback-url }}" \
+            curl -fsS -X POST "${{ inputs.backend-url }}/callback" \
               -H "X-Callback-Token: ${{ inputs.callback-token }}" \
               -F "status=failed" \
               -F "message=One or more build jobs failed" || true
@@ -53,13 +53,13 @@ jobs:
             [ -f "$f" ] && FILES_ARGS+=(-F "files=@$f")
           done
           if [ "${#FILES_ARGS[@]}" -eq 0 ]; then
-            curl -fsS -X POST "${{ inputs.callback-url }}" \
+            curl -fsS -X POST "${{ inputs.backend-url }}/callback" \
               -H "X-Callback-Token: ${{ inputs.callback-token }}" \
               -F "status=failed" \
               -F "message=No artifact files found" || true
             exit 0
           fi
-          curl -fsS -X POST "${{ inputs.callback-url }}" \
+          curl -fsS -X POST "${{ inputs.backend-url }}/callback" \
             -H "X-Callback-Token: ${{ inputs.callback-token }}" \
             -F "status=completed" \
             "${FILES_ARGS[@]}"

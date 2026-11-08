@@ -17,18 +17,13 @@ on:
         required: false
         type: string
         default: ''
-      callback-url:
-        description: 'Console callback URL to POST build status and artifacts to'
+      backend-url:
+        description: 'Console backend URL (base path for callback and config endpoints)'
         required: false
         type: string
         default: ''
       callback-token:
         description: 'Callback token authenticating the POST to the console'
-        required: false
-        type: string
-        default: ''
-      config-url:
-        description: 'Console URL to fetch signed custom.txt and logo files from'
         required: false
         type: string
         default: ''
@@ -54,24 +49,14 @@ on:
         description: 'Build UUID used by the console to track this build'
         required: true
         type: string
-      callback-url:
-        description: 'Console callback URL to POST build status and artifacts to'
+      backend-url:
+        description: 'Console backend URL (base path for callback and config endpoints)'
         required: true
         type: string
       callback-token:
         description: 'Callback token authenticating the POST to the console'
         required: true
         type: string
-      custom-json:
-        description: 'Custom client configuration JSON (reserved for future use)'
-        required: false
-        type: string
-        default: ''
-      config-url:
-        description: 'Console URL to fetch signed custom.txt and logo files from'
-        required: false
-        type: string
-        default: ''
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -146,11 +131,11 @@ jobs:
           submodules: recursive
 
       - name: Fetch custom client config
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
         run: |
           bash .github/scripts/fetch-custom-config.sh \
-            "${{ inputs.config-url }}" \
+            "${{ inputs.backend-url }}/config" \
             "${{ inputs.callback-token }}" \
             ./custom-config
           if [ -f ./custom-config/public-key.txt ]; then
@@ -319,7 +304,7 @@ jobs:
           cargo test --locked --release -p clipboard --features unix-file-copy-paste
 
       - name: Inject custom client files
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.config-url != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
         run: |
           APP_DIR="./flutter/build/macos/Build/Products/Release/RustDesk.app/Contents/MacOS"
@@ -414,6 +399,6 @@ jobs:
     uses: ./.github/workflows/notify-console.yml
     if: always() && github.event_name == 'workflow_dispatch'
     with:
-      callback-url: ${{ inputs.callback-url }}
+      backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
       build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
