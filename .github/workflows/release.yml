@@ -62,19 +62,14 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            archive: tar.gz
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
-            archive: tar.gz
           - target: x86_64-apple-darwin
             os: macos-13
-            archive: tar.gz
-          - target: aarch64-apple-darwin
+5         - target: aarch64-apple-darwin
             os: macos-latest
-            archive: tar.gz
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            archive: zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -106,26 +101,22 @@ jobs:
       - name: Build backend
         run: cargo build --release --target ${{ matrix.target }} --manifest-path backend/Cargo.toml
 
-      - name: Package binary (Unix)
-        if: matrix.archive == 'tar.gz'
+      - name: Rename binary (Windows)
+        if: matrix.target == 'x86_64-pc-windows-msvc'
         run: |
-          cd backend/target/${{ matrix.target }}/release
-          tar -czf ../../../rustdesk-generator-${{ matrix.target }}.tar.gz rustdesk-generator-backend
+          cp backend/target/${{ matrix.target }}/release/rustdesk-generator-backend.exe \
+             rustdesk-generator-${{ matrix.target }}.exe
 
-      - name: Package binary (Windows)
-        if: matrix.archive == 'zip'
-        shell: pwsh
+      - name: Rename binary (Unix)
+        if: matrix.target != 'x86_64-pc-windows-msvc'
         run: |
-          Compress-Archive -Path backend/target/${{ matrix.target }}/release/rustdesk-generator-backend.exe -DestinationPath rustdesk-generator-${{ matrix.target }}.zip
+          cp backend/target/${{ matrix.target }}/release/rustdesk-generator-backend \
+             rustdesk-generator-${{ matrix.target }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.target }}
-          path: |
-            backend/target/*/release/rustdesk-generator-${{ matrix.target }}.tar.gz
-            backend/target/*/release/rustdesk-generator-${{ matrix.target }}.zip
-            rustdesk-generator-${{ matrix.target }}.tar.gz
-            rustdesk-generator-${{ matrix.target }}.zip
+          path: rustdesk-generator-${{ matrix.target }}*
           retention-days: 30
 
   release:
