@@ -14,6 +14,7 @@ pub struct TriggerRequest {
     pub arch: Option<String>,
     #[serde(default)]
     pub custom: CustomConfig,
+    #[allow(dead_code)]
     pub turnstile_token: Option<String>,
 }
 

@@ -90,7 +90,7 @@ impl Database {
     pub async fn list(&self) -> Vec<BuildRecord> {
         let builds = self.builds.read().await;
         let mut list: Vec<BuildRecord> = builds.values().cloned().collect();
-        list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        list.sort_by_key(|a| std::cmp::Reverse(a.created_at));
         list
     }
 }

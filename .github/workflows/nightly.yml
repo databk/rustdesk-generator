@@ -1,0 +1,122 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  check-commits:
+    name: Check for New Commits
+    runs-on: ubuntu-latest
+    outputs:
+      has_new_commits: ${{ steps.check.outputs.has_new_commits }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        run: |
+          if git rev-parse --verify refs/tags/nightly >/dev/null 2>&1; then
+            LAST_NIGHTLY=$(git rev-list -n 1 refs/tags/nightly)
+            HEAD_COMMIT=$(git rev-parse HEAD)
+            if [ "$LAST_NIGHTLY" = "$HEAD_COMMIT" ]; then
+              echo "has_new_commits=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_new_commits=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "has_new_commits=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  nightly:
+    name: Nightly Build
+    needs: check-commits
+    if: needs.check-commits.outputs.has_new_commits == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+      - id: version
+        run: |
+          VERSION="nightly.$(date -u +%Y%m%d)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Delete old nightly tag and release
+        run: |
+          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: TriPSs/conventional-changelog-action@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: nightly
+          skip-commit: true
+          skip-version-file: true
+          output: CHANGELOG.md
+
+      - name: Create nightly release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: nightly
+          name: "Nightly ${{ steps.version.outputs.version }}"
+          body_path: CHANGELOG.md
+          prerelease: true
+
+  docker:
+    name: Docker Nightly
+    needs: nightly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/databk/rustdesk-generator:nightly
+            databk/rustdesk-generator:nightly
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.title=RustDesk Generator
+            org.opencontainers.image.description=RustDesk Custom Client Builder
+            org.opencontainers.image.version=${{ needs.nightly.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
