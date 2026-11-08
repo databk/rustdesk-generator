@@ -14,7 +14,7 @@ pub struct TriggerRequest {
     pub arch: Option<String>,
     #[serde(default)]
     pub custom: CustomConfig,
-    #[allow(dead_code)]
+
     pub turnstile_token: Option<String>,
 }
 
@@ -36,6 +36,13 @@ pub async fn trigger(
     State(state): State<Arc<AppState>>,
     Json(req): Json<TriggerRequest>,
 ) -> Result<Json<TriggerResponse>, (StatusCode, String)> {
+    if let Some(secret) = &state.turnstile_secret_key {
+        let token = req.turnstile_token.as_deref()
+            .ok_or((StatusCode::BAD_REQUEST, "Turnstile token required".into()))?;
+        verify_turnstile(token, secret).await
+            .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
+    }
+
     let uuid = Uuid::new_v4().to_string();
     let callback_token = Uuid::new_v4().to_string();
     let backend_url = format!("{}/api/build/{}", state.backend_url, uuid);
@@ -274,5 +281,40 @@ fn guess_mime(filename: &str) -> &'static str {
         "svg" => "image/svg+xml",
         "ico" => "image/x-icon",
         _ => "application/octet-stream",
+    }
+}
+
+#[derive(Deserialize)]
+struct TurnstileResponse {
+    success: bool,
+    #[serde(default)]
+    #[serde(rename = "error-codes")]
+    error_codes: Vec<String>,
+}
+
+async fn verify_turnstile(token: &str, secret: &str) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
+        .form(&[
+            ("secret", secret),
+            ("response", token),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("Turnstile verification failed: {}", e))?;
+
+    let result: TurnstileResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Turnstile response parse error: {}", e))?;
+
+    if result.success {
+        Ok(())
+    } else {
+        Err(format!(
+            "Turnstile verification failed: {}",
+            result.error_codes.join(", ")
+        ))
     }
 }

@@ -1,10 +1,12 @@
 # Stage 1: Build frontend
 FROM node:22-slim AS frontend-builder
 
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 RUN npm run build
 
 # Stage 2: Build backend

@@ -21,6 +21,7 @@ pub struct AppState {
     pub storage: storage::Storage,
     pub github: github::GitHubClient,
     pub backend_url: String,
+    pub turnstile_secret_key: Option<String>,
 }
 
 #[tokio::main]
@@ -34,6 +35,7 @@ async fn main() -> Result<()> {
     let generator_ref = std::env::var("GENERATOR_REF").unwrap_or_else(|_| "main".into());
     let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".into());
     let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./frontend/out".into());
+    let turnstile_secret_key = std::env::var("TURNSTILE_SECRET_KEY").ok().filter(|s| !s.is_empty());
 
     let signing = signing::SigningService::from_env()?;
     let db = db::Database::new(&format!("{}/builds.json", data_dir))?;
@@ -46,6 +48,7 @@ async fn main() -> Result<()> {
         storage,
         github,
         backend_url,
+        turnstile_secret_key,
     });
 
     let serve_dir = ServeDir::new(&static_dir)

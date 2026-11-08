@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   CustomConfig,
@@ -12,6 +12,25 @@ import {
   uploadLogo,
 } from "@/lib/api";
 
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          "error-callback"?: () => void;
+          "expired-callback"?: () => void;
+        }
+      ) => string;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
 export default function HomePage() {
   const router = useRouter();
   const [os, setOs] = useState("all");
@@ -21,6 +40,9 @@ export default function HomePage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploaded, setLogoUploaded] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
 
   const [custom, setCustom] = useState<CustomConfig>({
     app_name: "",
@@ -28,6 +50,43 @@ export default function HomePage() {
   });
 
   const archOptions = useMemo(() => ARCH_OPTIONS[os] || [], [os]);
+
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || !turnstileContainerRef.current) return;
+
+    const renderWidget = () => {
+      if (window.turnstile && turnstileContainerRef.current && !turnstileWidgetIdRef.current) {
+        turnstileWidgetIdRef.current = window.turnstile.render(
+          turnstileContainerRef.current,
+          {
+            sitekey: TURNSTILE_SITE_KEY,
+            callback: (token: string) => setTurnstileToken(token),
+            "error-callback": () => setTurnstileToken(null),
+            "expired-callback": () => setTurnstileToken(null),
+          }
+        );
+      }
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+    } else {
+      const interval = setInterval(() => {
+        if (window.turnstile) {
+          renderWidget();
+          clearInterval(interval);
+        }
+      }, 200);
+      return () => clearInterval(interval);
+    }
+
+    return () => {
+      if (turnstileWidgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(turnstileWidgetIdRef.current);
+        turnstileWidgetIdRef.current = null;
+      }
+    };
+  }, []);
 
   const handleOsChange = (value: string) => {
     setOs(value);
@@ -50,6 +109,12 @@ export default function HomePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Please complete the human verification.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -66,6 +131,7 @@ export default function HomePage() {
           override_settings: custom.override_settings || undefined,
           default_settings: custom.default_settings || undefined,
         },
+        turnstile_token: turnstileToken || undefined,
       };
       const resp = await triggerBuild(req);
       router.push(`/build?id=${resp.uuid}`);
@@ -322,6 +388,15 @@ export default function HomePage() {
               Upload app icons/logos. Supported formats: PNG, JPEG, SVG, ICO.
             </p>
           </section>
+
+          {TURNSTILE_SITE_KEY && (
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Human Verification
+              </h2>
+              <div ref={turnstileContainerRef} />
+            </section>
+          )}
 
           <div className="flex justify-end">
             <button
