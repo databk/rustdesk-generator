@@ -4,7 +4,10 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
+use tower_http::{
+    cors::CorsLayer,
+    services::{ServeDir, ServeFile},
+};
 
 mod api;
 mod db;
@@ -24,12 +27,13 @@ pub struct AppState {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let port: u16 = std::env::var("PORT").unwrap_or_else(|_| "3001".into()).parse()?;
+    let port: u16 = std::env::var("PORT").unwrap_or_else(|_| "3000".into()).parse()?;
     let backend_url = std::env::var("BACKEND_URL").unwrap_or_else(|_| format!("http://localhost:{}", port));
     let github_token = std::env::var("GITHUB_TOKEN").unwrap_or_else(|_| "".into());
     let generator_repo = std::env::var("GENERATOR_REPO").unwrap_or_else(|_| "databk/rustdesk-generator".into());
     let generator_ref = std::env::var("GENERATOR_REF").unwrap_or_else(|_| "main".into());
     let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".into());
+    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./frontend/out".into());
 
     let signing = signing::SigningService::from_env()?;
     let db = db::Database::new(&format!("{}/builds.json", data_dir))?;
@@ -44,6 +48,9 @@ async fn main() -> Result<()> {
         backend_url,
     });
 
+    let serve_dir = ServeDir::new(&static_dir)
+        .fallback(ServeFile::new(format!("{}/index.html", static_dir)));
+
     let app = Router::new()
         .route("/api/trigger", post(api::trigger))
         .route("/api/build/:id", get(api::get_build))
@@ -52,6 +59,7 @@ async fn main() -> Result<()> {
         .route("/api/build/:id/callback", post(api::callback))
         .route("/api/upload-logo", post(api::upload_logo))
         .route("/api/download/:id/:filename", get(api::download))
+        .fallback_service(serve_dir)
         .layer(CorsLayer::permissive())
         .with_state(state);
 

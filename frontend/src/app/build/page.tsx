@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { BuildStatusResponse, getBuildStatus, getDownloadUrl } from "@/lib/api";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -18,14 +18,20 @@ const STATUS_ICONS: Record<string, string> = {
   failed: "❌",
 };
 
-export default function BuildPage() {
-  const params = useParams();
-  const id = params.id as string;
+function BuildContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") || "";
   const [build, setBuild] = useState<BuildStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!id) {
+      setError("Missing build ID");
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const poll = async () => {
@@ -66,10 +72,7 @@ export default function BuildPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-2">{error}</p>
-          <a
-            href="/"
-            className="text-blue-600 hover:underline text-sm"
-          >
+          <a href="/" className="text-blue-600 hover:underline text-sm">
             Back to home
           </a>
         </div>
@@ -88,9 +91,7 @@ export default function BuildPage() {
           <a href="/" className="text-sm text-blue-600 hover:underline mb-2 inline-block">
             ← Back to home
           </a>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Build Status
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Build Status</h1>
         </header>
 
         <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -108,7 +109,8 @@ export default function BuildPage() {
             </div>
             <div
               className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
-                STATUS_STYLES[build.status] || "bg-gray-50 text-gray-800 border-gray-200"
+                STATUS_STYLES[build.status] ||
+                "bg-gray-50 text-gray-800 border-gray-200"
               }`}
             >
               {STATUS_ICONS[build.status] || "❓"} {build.status}
@@ -124,9 +126,7 @@ export default function BuildPage() {
 
         {build.status === "completed" && build.files.length > 0 && (
           <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Download
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Download</h2>
             <div className="space-y-3">
               {build.files.map((filename) => (
                 <a
@@ -179,5 +179,19 @@ export default function BuildPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BuildPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      }
+    >
+      <BuildContent />
+    </Suspense>
   );
 }

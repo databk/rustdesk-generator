@@ -68,7 +68,7 @@ export default function HomePage() {
         },
       };
       const resp = await triggerBuild(req);
-      router.push(`/build/${resp.uuid}`);
+      router.push(`/build?id=${resp.uuid}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Build trigger failed");
     } finally {
