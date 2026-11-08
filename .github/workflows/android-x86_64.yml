@@ -193,6 +193,7 @@ jobs:
         with:
           channel: "stable"
           flutter-version: ${{ env.ANDROID_FLUTTER_VERSION }}
+          cache: true
 
       - name: Patch flutter
         run: |

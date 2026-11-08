@@ -179,6 +179,7 @@ jobs:
         with:
           channel: "stable"
           flutter-version: ${{ matrix.job.arch == 'aarch64' && env.FLUTTER_WINDOWS_ARM_VERSION || env.FLUTTER_VERSION }}
+          cache: true
           architecture: x64
 
       - name: Force arm64 Dart SDK + engine
