@@ -130,6 +130,22 @@ jobs:
           repository: rustdesk/rustdesk
           submodules: recursive
 
+      - name: Try restore base build
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="base-macos-${{ matrix.job.arch }}"
+          if gh release download "$TAG" -R "${{ github.repository }}" -D ./base-build --clobber 2>/dev/null; then
+            tar xzf ./base-build/rustdesk-base-macos-${{ matrix.job.arch }}.tar.gz
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            echo "Restored base build from Release"
+          else
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+            echo "No base build found, will compile from source"
+          fi
+
       - name: Fetch custom client config
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
@@ -138,14 +154,14 @@ jobs:
             "${{ inputs.backend-url }}/config" \
             "${{ inputs.callback-token }}" \
             ./custom-config
-          if [ -f ./custom-config/public-key.txt ]; then
+          if [ "${{ env.SKIP_BUILD }}" != "true" ] && [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
             sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
             echo "Replaced public key in src/common.rs"
           fi
 
       - name: Import the codesign cert
-        if: env.MACOS_P12_BASE64 != null
+        if: env.MACOS_P12_BASE64 != null && env.SKIP_BUILD != 'true'
         uses: apple-actions/import-codesign-certs@253ddeeac23f2bdad1646faac5c8c2832e800071 # v1
         with:
           p12-file-base64: ${{ secrets.MACOS_P12_BASE64 }}
@@ -153,13 +169,13 @@ jobs:
           keychain: rustdesk
 
       - name: Check sign and import sign key
-        if: env.MACOS_P12_BASE64 != null
+        if: env.MACOS_P12_BASE64 != null && env.SKIP_BUILD != 'true'
         run: |
           security default-keychain -s rustdesk.keychain
           security find-identity -v
 
       - name: Import notarize key
-        if: env.MACOS_P12_BASE64 != null
+        if: env.MACOS_P12_BASE64 != null && env.SKIP_BUILD != 'true'
         uses: timheuer/base64-to-file@adaa40c0c581f276132199d4cf60afa07ce60eac # v1.2
         with:
           # https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign.html#notarizing-and-stapling
@@ -168,7 +184,7 @@ jobs:
           encodedString: ${{ secrets.MACOS_NOTARIZE_JSON }}
 
       - name: Install rcodesign tool
-        if: env.MACOS_P12_BASE64 != null
+        if: env.MACOS_P12_BASE64 != null && env.SKIP_BUILD != 'true'
         shell: bash
         run: |
           pushd /tmp
@@ -178,6 +194,7 @@ jobs:
           popd
 
       - name: Install build runtime
+        if: env.SKIP_BUILD != 'true'
         run: |
           brew install llvm create-dmg
           # pkg-config is handled in a separate step, because it may be already installed by `macos-latest`(14.7.1) runner
@@ -188,6 +205,7 @@ jobs:
           fi
 
       - name: Install NASM
+        if: env.SKIP_BUILD != 'true'
         run: |
           # Install NASM 2.16.x from official release.
           # Do NOT use `brew install nasm` which installs NASM 3.x.
@@ -199,6 +217,7 @@ jobs:
           nasm --version
 
       - name: Install flutter
+        if: env.SKIP_BUILD != 'true'
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: "stable"
@@ -206,6 +225,7 @@ jobs:
           cache: true
 
       - name: Patch flutter
+        if: env.SKIP_BUILD != 'true'
         run: |
           cd $(dirname $(dirname $(which flutter)))
           if [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]]; then
@@ -213,6 +233,7 @@ jobs:
           fi
 
       - name: Workaround for flutter issue
+        if: env.SKIP_BUILD != 'true'
         shell: bash
         run: |
           cd "$(dirname "$(which flutter)")"
@@ -232,23 +253,26 @@ jobs:
           prefix-key: ${{ matrix.job.os }}
 
       - name: Restore bridge files
+        if: env.SKIP_BUILD != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bridge-artifact
           path: ./
 
       - name: Run the Dart tests
-        if: ${{ !inputs.upload-artifact && matrix.job.arch == 'aarch64' }}
+        if: ${{ !inputs.upload-artifact && matrix.job.arch == 'aarch64' && env.SKIP_BUILD != 'true' }}
         working-directory: flutter
         run: flutter test --timeout 60s
 
       - name: Setup vcpkg with Github Actions binary cache
+        if: env.SKIP_BUILD != 'true'
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
         with:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
       - name: Install vcpkg dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           if ! $VCPKG_ROOT/vcpkg \
             install \
@@ -265,6 +289,7 @@ jobs:
           head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-${{ matrix.job.vcpkg-triplet }}-rel-out.log" || true
 
       - name: Show version information (Rust, cargo, Clang)
+        if: env.SKIP_BUILD != 'true'
         shell: bash
         run: |
           clang --version || true
@@ -275,6 +300,7 @@ jobs:
           rustc -V
 
       - name: Build rustdesk
+        if: env.SKIP_BUILD != 'true'
         run: |
           if [ "${{ matrix.job.target }}" = "aarch64-apple-darwin" ]; then
             MIN_MACOS_VERSION="12.3"
@@ -287,7 +313,7 @@ jobs:
           ./build.py --flutter --hwcodec --unix-file-copy-paste ${{ matrix.job.extra-build-args }}
 
       - name: Test verified updates
-        if: env.PUBLISH_UPDATE_METADATA == 'true'
+        if: env.PUBLISH_UPDATE_METADATA == 'true' && env.SKIP_BUILD != 'true'
         run: |
           python3 -m unittest res/update/test_macos_update_scripts.py
           cargo test --locked --release --lib platform::macos::update_tests --features "flutter,hwcodec,unix-file-copy-paste${{ matrix.job.extra-cargo-features }}"
@@ -295,7 +321,7 @@ jobs:
           cargo test --locked --release --lib update_metadata::tests --features "flutter,hwcodec,unix-file-copy-paste${{ matrix.job.extra-cargo-features }}"
 
       - name: Run the Rust tests
-        if: ${{ !inputs.upload-artifact && matrix.job.arch == 'aarch64' }}
+        if: ${{ !inputs.upload-artifact && matrix.job.arch == 'aarch64' && env.SKIP_BUILD != 'true' }}
         run: |
           # The build's own features, so the tests see the code that ships. MACOSX_DEPLOYMENT_TARGET
           # comes from the build step's export.
@@ -303,6 +329,17 @@ jobs:
           cargo test --locked --release --lib --features "$FEATURES"
           # Opt-in, and its macOS tests run nowhere else.
           cargo test --locked --release -p clipboard --features unix-file-copy-paste
+
+      - name: Upload base build to Release
+        if: ${{ github.event_name == 'workflow_dispatch' && env.SKIP_BUILD != 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="base-macos-${{ matrix.job.arch }}"
+          tar czf rustdesk-base-macos-${{ matrix.job.arch }}.tar.gz flutter/build/macos/Build/Products/Release/RustDesk.app
+          gh release create "$TAG" -R "${{ github.repository }}" --title "Base build for Macos ${{ matrix.job.arch }}" --notes "Auto-generated base build" || true
+          gh release upload "$TAG" -R "${{ github.repository }}" rustdesk-base-macos-${{ matrix.job.arch }}.tar.gz --clobber
 
       - name: Inject custom client files
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}

@@ -127,6 +127,22 @@ jobs:
           repository: rustdesk/rustdesk
           submodules: recursive
 
+      - name: Try restore base build
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="base-windows-${{ matrix.job.arch }}"
+          if gh release download "$TAG" -R "${{ github.repository }}" -D ./base-build --clobber 2>/dev/null; then
+            tar xzf ./base-build/rustdesk-base-windows-${{ matrix.job.arch }}.tar.gz
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            echo "Restored base build from Release"
+          else
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+            echo "No base build found, will compile from source"
+          fi
+
       - name: Fetch custom client config
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
@@ -135,13 +151,14 @@ jobs:
             "${{ inputs.backend-url }}/config" \
             "${{ inputs.callback-token }}" \
             ./custom-config
-          if [ -f ./custom-config/public-key.txt ]; then
+          if [ "${{ env.SKIP_BUILD }}" != "true" ] && [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
             sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
             echo "Replaced public key in src/common.rs"
           fi
 
       - name: Install LLVM and Clang
+        if: env.SKIP_BUILD != 'true'
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
         with:
           version: ${{ env.LLVM_VERSION }}
@@ -167,6 +184,7 @@ jobs:
           prefix-key: ${{ matrix.job.os }}-sciter
 
       - name: Setup vcpkg with Github Actions binary cache
+        if: env.SKIP_BUILD != 'true'
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
         with:
           vcpkgDirectory: C:\vcpkg
@@ -174,6 +192,7 @@ jobs:
           doNotCache: false
 
       - name: Install vcpkg dependencies
+        if: env.SKIP_BUILD != 'true'
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.job.vcpkg-triplet }}
         run: |
@@ -194,6 +213,7 @@ jobs:
         shell: bash
 
       - name: Build rustdesk
+        if: env.SKIP_BUILD != 'true'
         id: build
         shell: bash
         run: |
@@ -215,6 +235,7 @@ jobs:
           mv ./usbmmidd_v2 ./Release || true
 
       - name: find Runner.res
+        if: env.SKIP_BUILD != 'true'
         # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
         # Runner.rc does not contain actual version, but Runner.res does
         continue-on-error: true
@@ -229,6 +250,17 @@ jobs:
             echo "list ./libs/portable/Runner.res";
             ls -l ./libs/portable/Runner.res;
           fi
+
+      - name: Upload base build to Release
+        if: ${{ github.event_name == 'workflow_dispatch' && env.SKIP_BUILD != 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="base-windows-${{ matrix.job.arch }}"
+          tar czf rustdesk-base-windows-${{ matrix.job.arch }}.tar.gz Release
+          gh release create "$TAG" -R "${{ github.repository }}" --title "Base build for Windows ${{ matrix.job.arch }}" --notes "Auto-generated base build" || true
+          gh release upload "$TAG" -R "${{ github.repository }}" rustdesk-base-windows-${{ matrix.job.arch }}.tar.gz --clobber
 
       - name: Inject custom client files
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
