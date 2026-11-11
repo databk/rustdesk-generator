@@ -20,6 +20,7 @@ pub struct AppState {
     pub github: github::GitHubClient,
     pub backend_url: String,
     pub turnstile_secret_key: Option<String>,
+    pub turnstile_hostnames: Vec<String>,
 }
 
 #[tokio::main]
@@ -33,6 +34,12 @@ async fn main() -> Result<()> {
     let generator_ref = std::env::var("GENERATOR_REF").unwrap_or_else(|_| "main".into());
     let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".into());
     let turnstile_secret_key = std::env::var("TURNSTILE_SECRET_KEY").ok().filter(|s| !s.is_empty());
+    let turnstile_hostnames: Vec<String> = std::env::var("TURNSTILE_HOSTNAMES")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
 
     let signing = signing::SigningService::from_env()?;
     let db = db::Database::new(&format!("{}/builds.json", data_dir))?;
@@ -46,6 +53,7 @@ async fn main() -> Result<()> {
         github,
         backend_url,
         turnstile_secret_key,
+        turnstile_hostnames,
     });
 
     let app = Router::new()
