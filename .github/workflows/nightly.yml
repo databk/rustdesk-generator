@@ -81,6 +81,7 @@ jobs:
 
       - name: Rename binary (Windows)
         if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: bash
         run: |
           cp backend/target/${{ matrix.target }}/release/rustdesk-generator-backend.exe \
              rustdesk-generator-${{ matrix.target }}.exe
