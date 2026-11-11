@@ -4,12 +4,10 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
-use tower_http::{
-    cors::CorsLayer,
-    services::{ServeDir, ServeFile},
-};
+use tower_http::cors::CorsLayer;
 
 mod api;
+mod assets;
 mod db;
 mod github;
 mod signing;
@@ -22,6 +20,7 @@ pub struct AppState {
     pub github: github::GitHubClient,
     pub backend_url: String,
     pub turnstile_secret_key: Option<String>,
+    pub turnstile_hostnames: Vec<String>,
 }
 
 #[tokio::main]
@@ -34,8 +33,13 @@ async fn main() -> Result<()> {
     let generator_repo = std::env::var("GENERATOR_REPO").unwrap_or_else(|_| "databk/rustdesk-generator".into());
     let generator_ref = std::env::var("GENERATOR_REF").unwrap_or_else(|_| "main".into());
     let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".into());
-    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./frontend/out".into());
     let turnstile_secret_key = std::env::var("TURNSTILE_SECRET_KEY").ok().filter(|s| !s.is_empty());
+    let turnstile_hostnames: Vec<String> = std::env::var("TURNSTILE_HOSTNAMES")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
 
     let signing = signing::SigningService::from_env()?;
     let db = db::Database::new(&format!("{}/builds.json", data_dir))?;
@@ -49,10 +53,8 @@ async fn main() -> Result<()> {
         github,
         backend_url,
         turnstile_secret_key,
+        turnstile_hostnames,
     });
-
-    let serve_dir = ServeDir::new(&static_dir)
-        .fallback(ServeFile::new(format!("{}/index.html", static_dir)));
 
     let app = Router::new()
         .route("/api/trigger", post(api::trigger))
@@ -62,7 +64,7 @@ async fn main() -> Result<()> {
         .route("/api/build/:id/callback", post(api::callback))
         .route("/api/upload-logo", post(api::upload_logo))
         .route("/api/download/:id/:filename", get(api::download))
-        .fallback_service(serve_dir)
+        .fallback(assets::serve_static)
         .layer(CorsLayer::permissive())
         .with_state(state);
 

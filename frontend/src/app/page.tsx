@@ -19,6 +19,7 @@ declare global {
         container: HTMLElement,
         options: {
           sitekey: string;
+          action?: string;
           callback: (token: string) => void;
           "error-callback"?: () => void;
           "expired-callback"?: () => void;
@@ -60,6 +61,7 @@ export default function HomePage() {
           turnstileContainerRef.current,
           {
             sitekey: TURNSTILE_SITE_KEY,
+            action: "trigger_build",
             callback: (token: string) => setTurnstileToken(token),
             "error-callback": () => setTurnstileToken(null),
             "expired-callback": () => setTurnstileToken(null),
