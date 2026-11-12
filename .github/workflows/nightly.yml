@@ -123,17 +123,24 @@ jobs:
 
       - name: Delete old nightly tag and release
         run: |
-          gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+          gh release delete nightly --yes 2>/dev/null || true
+          git push origin --delete nightly 2>/dev/null || true
+          git tag -d nightly 2>/dev/null || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: TriPSs/conventional-changelog-action@v6
+      - name: Generate changelog
+        uses: TriPSs/conventional-changelog-action@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          tag: nightly
-          skip-commit: true
-          skip-version-file: true
-          output: CHANGELOG.md
+          tag-prefix: ''
+          skip-tag: 'true'
+          skip-commit: 'true'
+
+      - name: Prepare release body and create nightly tag
+        run: |
+          printf "${{ steps.changelog.outputs.clean_changelog }}" > CHANGELOG.md
+          git tag nightly
+          git push origin nightly
 
       - name: Create nightly release
         uses: softprops/action-gh-release@v3
