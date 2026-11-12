@@ -116,20 +116,14 @@ jobs:
           path: binaries/
           merge-multiple: true
 
-      - id: version
-        run: |
-          VERSION="nightly.$(date -u +%Y%m%d)"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Delete old nightly tag and release
         run: |
           gh release delete nightly --yes 2>/dev/null || true
           git push origin --delete nightly 2>/dev/null || true
           git tag -d nightly 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate changelog
+        id: changelog
         uses: TriPSs/conventional-changelog-action@v6
         with:
           tag-prefix: ''
@@ -146,7 +140,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: nightly
-          name: "Nightly ${{ steps.version.outputs.version }}"
+          name: "Nightly ${{ steps.changelog.outputs.version }}"
           body_path: CHANGELOG.md
           prerelease: true
           files: binaries/*
