@@ -3,15 +3,6 @@ name: Build the flutter version of the RustDesk
 on:
   workflow_call:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
-        type: string
-        default: "nightly"
-      publish-update-metadata:
-        type: boolean
-        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: false
@@ -30,21 +21,6 @@ on:
 
   workflow_dispatch:
     inputs:
-      upload-artifact:
-        description: 'Whether to upload build artifacts'
-        required: false
-        type: boolean
-        default: true
-      upload-tag:
-        description: 'Release tag for uploaded artifacts'
-        required: false
-        type: string
-        default: "nightly"
-      publish-update-metadata:
-        description: 'Whether to publish signed update metadata'
-        required: false
-        type: boolean
-        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: true
@@ -83,7 +59,6 @@ env:
   FLUTTER_WINDOWS_ARM_VERSION: "3.44.9"
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   # vcpkg version: 2026.07.29
   # If we change the `VCPKG COMMIT_ID`, please remember:
@@ -99,50 +74,10 @@ env:
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
-  PUBLISH_UPDATE_METADATA: "${{ inputs.publish-update-metadata }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
-  validate-update-metadata-keys:
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout source code
-        if: ${{ inputs.publish-update-metadata }}
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          repository: rustdesk/rustdesk
-          persist-credentials: false
-
-      - name: Install Python
-        if: ${{ inputs.publish-update-metadata }}
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python dependencies
-        if: ${{ inputs.publish-update-metadata }}
-        run: 'python -m pip install --only-binary=:all: --require-hashes -r res/update/update_metadata_requirements.txt'
-
-      - name: Test update metadata signer
-        if: ${{ inputs.publish-update-metadata }}
-        run: |
-          python -m unittest \
-            res/update/test_generate_update_metadata.py \
-            res/update/test_update_metadata_cli.py \
-            res/update/test_macos_update_scripts.py
-
-      - name: Validate update metadata keys
-        if: ${{ inputs.publish-update-metadata }}
-        env:
-          RUSTDESK_UPDATE_ED25519_SEED: ${{ secrets.RUSTDESK_UPDATE_ED25519_SEED }}
-          RUSTDESK_UPDATE_ED25519_PUBLIC_KEY: ${{ vars.RUSTDESK_UPDATE_ED25519_PUBLIC_KEY }}
-        run: python res/update/generate_update_metadata.py check-key
-
   generate-sbom:
-    needs: [validate-update-metadata-keys]
     runs-on: ubuntu-latest
 
     permissions:
@@ -164,11 +99,9 @@ jobs:
 
 
   generate-bridge:
-    needs: [validate-update-metadata-keys]
     uses: ./.github/workflows/bridge.yml
 
   build-RustDeskTempTopMostWindow:
-    needs: [validate-update-metadata-keys]
     uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
     strategy:
       fail-fast: false
@@ -183,7 +116,6 @@ jobs:
               platform: ARM64,
             }
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
       target: ${{ matrix.job.target }}
       configuration: Release
       platform: ${{ matrix.job.platform }}
@@ -193,9 +125,6 @@ jobs:
     needs: [generate-bridge, build-RustDeskTempTopMostWindow]
     uses: ./.github/workflows/windows-x86_64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -205,21 +134,14 @@ jobs:
     needs: [generate-bridge, build-RustDeskTempTopMostWindow]
     uses: ./.github/workflows/windows-aarch64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
     secrets: inherit
 
   build-windows-x86:
-    needs: [validate-update-metadata-keys]
     uses: ./.github/workflows/windows-x86.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -229,9 +151,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/macos-x86_64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -241,9 +160,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/macos-aarch64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -253,9 +169,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/ios-aarch64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -265,9 +178,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/android-aarch64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -277,9 +187,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/android-armv7.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -289,9 +196,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/android-x86_64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -301,9 +205,6 @@ jobs:
     needs: [build-android-aarch64, build-android-armv7, build-android-x86_64]
     uses: ./.github/workflows/android-universal.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -313,9 +214,6 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/linux-x86_64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
@@ -325,161 +223,18 @@ jobs:
     needs: [generate-bridge]
     uses: ./.github/workflows/linux-aarch64.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
     secrets: inherit
 
   build-linux-armv7:
-    needs: [validate-update-metadata-keys]
     uses: ./.github/workflows/linux-armv7.yml
     with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      upload-tag: ${{ inputs.upload-tag }}
-      publish-update-metadata: ${{ inputs.publish-update-metadata }}
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
       callback-token: ${{ inputs.callback-token }}
     secrets: inherit
-
-  publish-signed-update-metadata:
-    needs: [build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64]
-    runs-on: ubuntu-22.04
-    if: ${{ inputs.upload-artifact && inputs.publish-update-metadata && github.repository == 'rustdesk/rustdesk' }}
-    concurrency:
-      group: signed-update-${{ inputs.upload-tag }}
-      cancel-in-progress: false
-    permissions:
-      # Required to inspect and publish signed release assets for the target tag.
-      contents: write
-    steps:
-      - name: Refuse to replace published update metadata
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ env.TAG_NAME }}
-        run: |
-          set -euo pipefail
-          releases="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
-          release_id="$(
-            jq -r --arg tag "$TAG_NAME" '
-              [.[][] | select(.tag_name == $tag)] |
-              if length == 0 then ""
-              elif length == 1 then .[0].id
-              else error("multiple releases found for tag")
-              end
-            ' <<<"$releases"
-          )"
-          if [ -z "$release_id" ]; then
-            exit 0
-          fi
-          assets="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?per_page=100")"
-          if jq -e 'any(.[][]; .name == "rustdesk-update.json")' <<<"$assets" >/dev/null; then
-            echo "::error::Signed update metadata is already published for ${TAG_NAME}; use a new release tag for corrected artifacts."
-            exit 1
-          fi
-
-      - name: Checkout source code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          repository: rustdesk/rustdesk
-          persist-credentials: false
-
-      - name: Install Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python dependencies
-        run: 'python -m pip install --only-binary=:all: --require-hashes -r res/update/update_metadata_requirements.txt'
-
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: windows-*
-          path: ./artifacts/
-          merge-multiple: true
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: macos-*
-          path: ./artifacts/
-          merge-multiple: true
-
-      - name: Sign update metadata
-        env:
-          RUSTDESK_UPDATE_ED25519_SEED: ${{ secrets.RUSTDESK_UPDATE_ED25519_SEED }}
-        run: |
-          python res/update/generate_update_metadata.py sign \
-            --artifact windows x86_64 exe "./artifacts/rustdesk-${VERSION}-x86_64.exe" \
-            --artifact windows x86_64 msi "./artifacts/rustdesk-${VERSION}-x86_64.msi" \
-            --artifact windows aarch64 exe "./artifacts/rustdesk-${VERSION}-aarch64.exe" \
-            --artifact windows aarch64 msi "./artifacts/rustdesk-${VERSION}-aarch64.msi" \
-            --artifact windows x86 exe "./artifacts/rustdesk-${VERSION}-x86-sciter.exe" \
-            --artifact macos aarch64 dmg "./artifacts/rustdesk-${VERSION}-aarch64.dmg" \
-            --artifact macos x86_64 dmg "./artifacts/rustdesk-${VERSION}-x86_64.dmg" \
-            --version "$VERSION" --release-id "$TAG_NAME" \
-            --package-id rustdesk \
-            --release-base-url https://github.com/rustdesk/rustdesk/releases/download \
-            --published-at "$(git log -1 --format=%cI)" \
-            --metadata-out ./rustdesk-update.json \
-            --signature-out ./rustdesk-update.json.sig
-
-      - name: Verify update metadata
-        env:
-          RUSTDESK_UPDATE_ED25519_PUBLIC_KEY: ${{ vars.RUSTDESK_UPDATE_ED25519_PUBLIC_KEY }}
-        run: |
-          python res/update/generate_update_metadata.py verify \
-            --metadata ./rustdesk-update.json \
-            --signature ./rustdesk-update.json.sig \
-            --artifact "./artifacts/rustdesk-${VERSION}-x86_64.exe" \
-            --artifact "./artifacts/rustdesk-${VERSION}-x86_64.msi" \
-            --artifact "./artifacts/rustdesk-${VERSION}-aarch64.exe" \
-            --artifact "./artifacts/rustdesk-${VERSION}-aarch64.msi" \
-            --artifact "./artifacts/rustdesk-${VERSION}-x86-sciter.exe" \
-            --artifact "./artifacts/rustdesk-${VERSION}-aarch64.dmg" \
-            --artifact "./artifacts/rustdesk-${VERSION}-x86_64.dmg" \
-            --version "$VERSION" --release-id "$TAG_NAME" \
-            --package-id rustdesk \
-            --release-base-url https://github.com/rustdesk/rustdesk/releases/download
-
-      - name: Upload signed update artifacts
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          prerelease: true
-          fail_on_unmatched_files: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: |
-            ./artifacts/rustdesk-${{ env.VERSION }}-x86_64.exe
-            ./artifacts/rustdesk-${{ env.VERSION }}-x86_64.msi
-            ./artifacts/rustdesk-${{ env.VERSION }}-aarch64.exe
-            ./artifacts/rustdesk-${{ env.VERSION }}-aarch64.msi
-            ./artifacts/rustdesk-${{ env.VERSION }}-x86-sciter.exe
-            ./artifacts/rustdesk-${{ env.VERSION }}-aarch64.dmg
-            ./artifacts/rustdesk-${{ env.VERSION }}-x86_64.dmg
-
-      # The release action replaces same-name assets, so keep published sidecars
-      # until replacements are ready.
-      - name: Upload signed update metadata signature
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          prerelease: true
-          fail_on_unmatched_files: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: ./rustdesk-update.json.sig
-
-      # Clients discover the release through metadata, so publish it only after every referenced asset.
-      - name: Publish signed update metadata
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          prerelease: true
-          fail_on_unmatched_files: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: ./rustdesk-update.json
 
   publish_unsigned:
     needs:
@@ -489,7 +244,6 @@ jobs:
       - build-windows-aarch64
       - build-windows-x86
     runs-on: ubuntu-latest
-    if: ${{ inputs.upload-artifact }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -534,21 +288,21 @@ jobs:
           path: ./msi-template/
 
       - name: Download Artifacts
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: rustdesk-unsigned-packer-template-x86_64
           path: ./packer-template/
 
       - name: Download Artifacts
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: rustdesk-unsigned-packer-template-aarch64
           path: ./packer-template/
 
       - name: Download Artifacts
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: rustdesk-unsigned-packer-template-x86
@@ -564,7 +318,7 @@ jobs:
 
 
   notify-console:
-    needs: [validate-update-metadata-keys, generate-bridge, build-RustDeskTempTopMostWindow, build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64, build-ios-aarch64, build-android-aarch64, build-android-armv7, build-android-x86_64, build-android-universal, build-linux-x86_64, build-linux-aarch64, build-linux-armv7]
+    needs: [generate-bridge, build-RustDeskTempTopMostWindow, build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64, build-ios-aarch64, build-android-aarch64, build-android-armv7, build-android-x86_64, build-android-universal, build-linux-x86_64, build-linux-aarch64, build-linux-armv7]
     uses: ./.github/workflows/notify-console.yml
     if: always() && github.event_name == 'workflow_dispatch'
     with:

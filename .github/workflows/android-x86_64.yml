@@ -3,15 +3,6 @@ name: Build RustDesk for Android x86_64
 on:
   workflow_call:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
-        type: string
-        default: "nightly"
-      publish-update-metadata:
-        type: boolean
-        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: false
@@ -35,21 +26,6 @@ on:
 
   workflow_dispatch:
     inputs:
-      upload-artifact:
-        description: 'Whether to upload build artifacts'
-        required: false
-        type: boolean
-        default: true
-      upload-tag:
-        description: 'Release tag for uploaded artifacts'
-        required: false
-        type: string
-        default: "nightly"
-      publish-update-metadata:
-        description: 'Whether to publish signed update metadata'
-        required: false
-        type: boolean
-        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: true
@@ -80,7 +56,6 @@ env:
   FLUTTER_WINDOWS_ARM_VERSION: "3.44.9"
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   # vcpkg version: 2026.07.29
   # If we change the `VCPKG COMMIT_ID`, please remember:
@@ -96,8 +71,6 @@ env:
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
-  PUBLISH_UPDATE_METADATA: "${{ inputs.publish-update-metadata }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
@@ -426,7 +399,7 @@ jobs:
           BUILD_TOOLS_VERSION: ${{ env.ANDROID_SIGN_TOOL_VERSION }}
 
       - name: Upload Artifacts
-        if: env.ANDROID_SIGNING_KEY != null && env.UPLOAD_ARTIFACT == 'true'
+        if: env.ANDROID_SIGNING_KEY != null
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.apk

@@ -3,15 +3,6 @@ name: Build RustDesk for Windows x86 (sciter)
 on:
   workflow_call:
     inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
-        type: string
-        default: "nightly"
-      publish-update-metadata:
-        type: boolean
-        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: false
@@ -30,21 +21,6 @@ on:
 
   workflow_dispatch:
     inputs:
-      upload-artifact:
-        description: 'Whether to upload build artifacts'
-        required: false
-        type: boolean
-        default: true
-      upload-tag:
-        description: 'Release tag for uploaded artifacts'
-        required: false
-        type: string
-        default: "nightly"
-      publish-update-metadata:
-        description: 'Whether to publish signed update metadata'
-        required: false
-        type: boolean
-        default: false
       build-id:
         description: 'Build UUID used by the console to track this build'
         required: true
@@ -75,7 +51,6 @@ env:
   FLUTTER_WINDOWS_ARM_VERSION: "3.44.9"
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   # vcpkg version: 2026.07.29
   # If we change the `VCPKG COMMIT_ID`, please remember:
@@ -91,8 +66,6 @@ env:
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
-  PUBLISH_UPDATE_METADATA: "${{ inputs.publish-update-metadata }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
@@ -279,33 +252,20 @@ jobs:
           done
 
       - name: Upload unsigned
-        if: env.UPLOAD_ARTIFACT == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: Release
 
       - name: Sign rustdesk files
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         shell: bash
         run: |
           pip3 install requests argparse
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./Release/
 
-      - name: Verify Windows Sciter version
-        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA == 'true'
-        shell: powershell
-        run: |
-          $reportedVersion = (& ".\Release\rustdesk.exe" --version | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0) {
-            throw "rustdesk --version exited with $LASTEXITCODE"
-          }
-          if ($reportedVersion -cne $env:VERSION) {
-            throw "RustDesk reports version '$reportedVersion', expected '$env:VERSION'"
-          }
-
       - name: Verify template payload signatures
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         shell: powershell
         run: |
           Get-ChildItem ./Release -Recurse -File -ErrorAction Stop |
@@ -316,7 +276,7 @@ jobs:
             }
 
       - name: Build template packer
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         shell: bash
         run: |
           sed -i '/dpiAware/d' res/manifest.xml
@@ -328,7 +288,7 @@ jobs:
           cp ./target/${{ matrix.job.target }}/release/rustdesk-portable-packer.exe ./packer-template/rustdesk-template-${{ matrix.job.arch }}.exe
 
       - name: Upload unsigned template packer
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rustdesk-unsigned-packer-template-${{ matrix.job.arch }}
@@ -347,20 +307,10 @@ jobs:
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.exe
 
       - name: Sign rustdesk self-extracted file
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != '-2'
         shell: bash
         run: |
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput/
-
-      - name: Upload signed Windows Sciter EXE
-        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA == 'true' && env.SIGN_BASE_URL != '-2'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: windows-sciter-x86-exe
-          path: ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}-sciter.exe
-          if-no-files-found: error
-
-
 
   notify-console:
     needs: [build-for-windows-sciter]
