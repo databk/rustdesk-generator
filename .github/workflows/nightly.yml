@@ -130,17 +130,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate changelog
-        id: changelog
         uses: TriPSs/conventional-changelog-action@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag-prefix: ''
           skip-tag: 'true'
           skip-commit: 'true'
-          skip-version-file: 'true'
-          output: CHANGELOG.md
 
-      - name: Create nightly tag
+      - name: Prepare release body and create nightly tag
         run: |
+          printf "${{ steps.changelog.outputs.clean_changelog }}" > CHANGELOG.md
           git tag nightly
           git push origin nightly
 
