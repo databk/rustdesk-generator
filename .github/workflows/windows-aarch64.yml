@@ -176,14 +176,7 @@ jobs:
           architecture: x64
 
       - name: Force arm64 Dart SDK + engine
-        if: env.SKIP_BUILD != 'true'
-        # The x64 SDK subosito installs bundles an x64 Dart with a matching engine-dart-sdk.stamp,
-        # so update_dart_sdk.ps1 short-circuits (stamp matches -> return) and keeps x64 Dart;
-        # `flutter build windows` then targets the Dart VM's arch = x64, even on this arm64 host.
-        # On this native-arm64 runner (PROCESSOR_ARCHITECTURE=ARM64), deleting the stamp and
-        # re-running update_dart_sdk.ps1 pulls the arm64 Dart (available since Flutter 3.44.0).
-        # https://github.com/flutter/flutter/issues/186730#issuecomment-4573214964
-        if: ${{ matrix.job.arch == 'aarch64' }}
+        if: ${{ env.SKIP_BUILD != 'true' && matrix.job.arch == 'aarch64' }}
         run: |
           $flutterRoot = "${{ steps.flutter.outputs['CACHE-PATH'] }}"
           Write-Host "PROCESSOR_ARCHITECTURE=$env:PROCESSOR_ARCHITECTURE"
@@ -221,10 +214,7 @@ jobs:
           mv -Force windows-x64-release/*  C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
 
       - name: Patch flutter
-        if: env.SKIP_BUILD != 'true'
-        # x64 stays on Flutter 3.24.5, which needs the dropdown filter patch.
-        # arm64 is on Flutter 3.44 (patched separately below) and does not use this patch.
-        if: ${{ matrix.job.arch == 'x86_64' }}
+        if: ${{ env.SKIP_BUILD != 'true' && matrix.job.arch == 'x86_64' }}
         shell: bash
         run: |
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
@@ -234,11 +224,7 @@ jobs:
           fi
 
       - name: Patch RustDesk sources for Flutter 3.44 (arm64)
-        if: env.SKIP_BUILD != 'true'
-        # arm64 is the only target on Flutter 3.44; apply its source/pubspec deltas on the fly
-        # (shared with the 3.44 bridge job) so the committed sources stay on Flutter 3.24.5.
-        # `flutter build` then runs `pub get`, regenerating pubspec.lock for the bumped deps.
-        if: ${{ matrix.job.arch == 'aarch64' }}
+        if: ${{ env.SKIP_BUILD != 'true' && matrix.job.arch == 'aarch64' }}
         shell: bash
         run: bash .github/patches/apply_flutter_3.44_source_patches.sh
 
@@ -283,10 +269,7 @@ jobs:
         shell: bash
 
       - name: Set SODIUM_LIB_DIR (arm64)
-        if: env.SKIP_BUILD != 'true'
-        # libsodium-sys ships no arm64 Windows prebuilt lib; point it at the vcpkg-built one
-        # (only for arm64 — leaving it unset lets x64 use the crate's bundled lib).
-        if: ${{ matrix.job.arch == 'aarch64' }}
+        if: ${{ env.SKIP_BUILD != 'true' && matrix.job.arch == 'aarch64' }}
         shell: bash
         run: echo "SODIUM_LIB_DIR=$VCPKG_ROOT/installed/${{ matrix.job.vcpkg-triplet }}/lib" >> "$GITHUB_ENV"
 
