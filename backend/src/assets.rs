@@ -12,36 +12,27 @@ struct Assets;
 pub async fn serve_static(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');
 
-    let file = Assets::get(path).or_else(|| {
-        if path.is_empty() {
-            Assets::get("index.html")
-        } else {
-            None
-        }
-    });
-
-    match file {
-        Some(file) => {
-            let mime = mime_guess::from_path(path).first_or_octet_stream();
-            (
-                StatusCode::OK,
-                [(header::CONTENT_TYPE, mime.as_ref())],
-                Body::from(file.data),
-            )
-                .into_response()
-        }
-        None => {
-            if let Some(index) = Assets::get("index.html") {
-                let mime = mime_guess::from_path("index.html").first_or_octet_stream();
-                (
-                    StatusCode::OK,
-                    [(header::CONTENT_TYPE, mime.as_ref())],
-                    Body::from(index.data),
-                )
-                    .into_response()
+    let (file, resolved_path) = Assets::get(path)
+        .map(|f| (f, path))
+        .or_else(|| {
+            if path.is_empty() {
+                Assets::get("index.html").map(|f| (f, "index.html"))
             } else {
-                (StatusCode::NOT_FOUND, "Not found").into_response()
+                None
             }
-        }
-    }
+        })
+        .unwrap_or_else(|| {
+            let index = Assets::get("index.html").unwrap_or_else(|| {
+                panic!("index.html not found in embedded assets")
+            });
+            (index, "index.html")
+        });
+
+    let mime = mime_guess::from_path(resolved_path).first_or_octet_stream();
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, mime.as_ref())],
+        Body::from(file.data),
+    )
+        .into_response()
 }
