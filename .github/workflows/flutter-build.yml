@@ -3,9 +3,44 @@ name: Build the flutter version of the RustDesk
 on:
   workflow_call:
     inputs:
-      request_id:
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: false
         type: string
-        default: ""
+        default: ''
+      backend-url:
+        description: 'Console backend URL (base path for callback and config endpoints)'
+        required: false
+        type: string
+        default: ''
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: false
+        type: string
+        default: ''
+
+  workflow_dispatch:
+    inputs:
+      build-id:
+        description: 'Build UUID used by the console to track this build'
+        required: true
+        type: string
+      backend-url:
+        description: 'Console backend URL (base path for callback and config endpoints)'
+        required: true
+        type: string
+      callback-token:
+        description: 'Callback token authenticating the POST to the console'
+        required: true
+        type: string
+
+
+# NOTE: F-Droid builder script 'flutter/build_fdroid.sh' reads environment
+# variables from this workflow!
+#
+# It does NOT read build steps, however, so please fix 'flutter/build_fdroid.sh
+# whenever you add changes to Android CI build action ('build-rustdesk-android')
+# in this file!
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -21,71 +56,190 @@ env:
   # engine is 3.44. Every other platform stays on FLUTTER_VERSION (3.24.5) until Windows 7
   # support is restored after the upstream-wide Flutter bump. The arm64 job patches the few
   # 3.44-only source/pubspec changes on the fly (see "Patch RustDesk sources for Flutter 3.44").
-  FLUTTER_WINDOWS_ARM_VERSION: "3.44.0"
+  FLUTTER_WINDOWS_ARM_VERSION: "3.44.9"
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  REQUEST_ID: "${{ inputs.request_id }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  # vcpkg version: 2025.08.27
+  # vcpkg version: 2026.07.29
   # If we change the `VCPKG COMMIT_ID`, please remember:
   # 1. Call `$VCPKG_ROOT/vcpkg x-update-baseline` to update the baseline in `vcpkg.json`.
-  #  Or we may face build issue like
+  #  Or we may face build issue like 
   #  https://github.com/rustdesk/rustdesk/actions/runs/14414119794/job/40427970174
   # 2. Update the `VCPKG_COMMIT_ID` in `ci.yml` and `playground.yml`.
-  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+  VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  VCPKG_CMAKE_VERSION: "4.3.0"
   ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836" # 2025.01.13, got "/opt/artifacts/vcpkg/vcpkg: No such file or directory" with latest version
-  VERSION: "1.4.8"
+  VERSION: "1.5.1"
   NDK_VERSION: "r28c"
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  UPLOAD_ARTIFACT: "${{ inputs.request_id }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: rustdesk/rustdesk
+          submodules: recursive
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        run: |
+          syft dir:. \
+            -o cyclonedx-json=rustdesk.sbom.json
+
+
+  generate-bridge:
+    uses: ./.github/workflows/bridge.yml
+
+  build-RustDeskTempTopMostWindow:
+    uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - {
+              target: windows-2022,
+              platform: x64,
+            }
+          - {
+              target: windows-11-arm,
+              platform: ARM64,
+            }
+    with:
+      target: ${{ matrix.job.target }}
+      configuration: Release
+      platform: ${{ matrix.job.platform }}
+      target_version: Windows10
+
   build-windows-x86_64:
+    needs: [generate-bridge, build-RustDeskTempTopMostWindow]
     uses: ./.github/workflows/windows-x86_64.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
   build-windows-aarch64:
+    needs: [generate-bridge, build-RustDeskTempTopMostWindow]
     uses: ./.github/workflows/windows-aarch64.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
   build-windows-x86:
     uses: ./.github/workflows/windows-x86.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
-  build-macos:
-    uses: ./.github/workflows/flutter-build-macos.yml
+  build-macos-x86_64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/macos-x86_64.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
-  build-ios:
-    uses: ./.github/workflows/flutter-build-ios.yml
+  build-macos-aarch64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/macos-aarch64.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
-  build-android:
-    uses: ./.github/workflows/flutter-build-android.yml
+  build-ios-aarch64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/ios-aarch64.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
-  build-linux:
-    uses: ./.github/workflows/flutter-build-linux.yml
+  build-android-aarch64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/android-aarch64.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
-  build-web:
-    uses: ./.github/workflows/flutter-build-web.yml
+  build-android-armv7:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/android-armv7.yml
     with:
-      request_id: ${{ inputs.request_id }}
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
+
+  build-android-x86_64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/android-x86_64.yml
+    with:
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
+
+  build-android-universal:
+    needs: [build-android-aarch64, build-android-armv7, build-android-x86_64]
+    uses: ./.github/workflows/android-universal.yml
+    with:
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
+
+  build-linux-x86_64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/linux-x86_64.yml
+    with:
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
+
+  build-linux-aarch64:
+    needs: [generate-bridge]
+    uses: ./.github/workflows/linux-aarch64.yml
+    with:
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
+
+  build-linux-armv7:
+    uses: ./.github/workflows/linux-armv7.yml
+    with:
+      build-id: ${{ inputs.build-id }}
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+    secrets: inherit
 
   publish_unsigned:
     needs:
-      - build-macos
+      - build-macos-x86_64
+      - build-macos-aarch64
       - build-windows-x86_64
       - build-windows-aarch64
       - build-windows-x86
@@ -103,12 +257,71 @@ jobs:
           name: rustdesk-unsigned-macos-aarch64
           path: ./
 
+      - name: Download Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-windows-x86_64
+          path: ./windows-x86_64/
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-windows-aarch64
+          path: ./windows-aarch64/
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-windows-x86
+          path: ./windows-x86/
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-msi-template-x86_64
+          path: ./msi-template/
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-msi-template-aarch64
+          path: ./msi-template/
+
+      - name: Download Artifacts
+        if: env.SIGN_BASE_URL != '-2'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-packer-template-x86_64
+          path: ./packer-template/
+
+      - name: Download Artifacts
+        if: env.SIGN_BASE_URL != '-2'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-packer-template-aarch64
+          path: ./packer-template/
+
+      - name: Download Artifacts
+        if: env.SIGN_BASE_URL != '-2'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdesk-unsigned-packer-template-x86
+          path: ./packer-template/
+
       - name: Combine unsigned app
         run: |
-          tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg
+          packer_template=()
+          if [[ "$SIGN_BASE_URL" != '-2' ]]; then
+            packer_template=(packer-template)
+          fi
+          tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg windows-x86_64 windows-aarch64 windows-x86 msi-template "${packer_template[@]}"
 
-      - name: Upload unsigned app
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: rustdesk-${{ env.VERSION }}-unsigned
-          path: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
+
+  notify-console:
+    needs: [generate-bridge, build-RustDeskTempTopMostWindow, build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64, build-ios-aarch64, build-android-aarch64, build-android-armv7, build-android-x86_64, build-android-universal, build-linux-x86_64, build-linux-aarch64, build-linux-armv7]
+    uses: ./.github/workflows/notify-console.yml
+    if: always() && github.event_name == 'workflow_dispatch'
+    with:
+      backend-url: ${{ inputs.backend-url }}
+      callback-token: ${{ inputs.callback-token }}
+      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
