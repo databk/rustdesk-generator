@@ -61,6 +61,7 @@ impl GitHubClient {
             .header("Authorization", format!("Bearer {}", self.token))
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2026-03-10")
+            .header("User-Agent", "rustdesk-generator")
             .json(&body)
             .send()
             .await
