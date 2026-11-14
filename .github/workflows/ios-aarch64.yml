@@ -269,11 +269,51 @@ jobs:
       #       flutter/build/ios/ipa/*.ipa
 
 
-  notify-console:
+  notify-result:
     needs: [build-rustdesk-ios]
-    uses: ./.github/workflows/notify-console.yml
     if: always() && github.event_name == 'workflow_dispatch'
-    with:
-      backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
-      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout generator scripts
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: generator-scripts
+          sparse-checkout: .github/scripts
+
+      - name: Download build artifacts
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Strip non-product artifacts
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        shell: bash
+        run: |
+          rm -rf ./artifacts/bridge-artifact \
+                 ./artifacts/bridge-artifact-flutter-3.44 \
+                 ./artifacts/topmostwindow-artifacts-x64 \
+                 ./artifacts/topmostwindow-artifacts-ARM64
+
+      - name: Notify build result
+        shell: bash
+        env:
+          BUILD_SUCCESS: !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+        run: |
+          if [ "$BUILD_SUCCESS" = "true" ]; then
+            mkdir -p ./upload
+            find ./artifacts -type f -exec cp -f {} ./upload/ \; 2>/dev/null || true
+            bash generator-scripts/.github/scripts/notify-build-result.sh \
+              "${{ inputs.backend-url }}" \
+              "${{ inputs.callback-token }}" \
+              "completed" \
+              "" \
+              ./upload
+          else
+            bash generator-scripts/.github/scripts/notify-build-result.sh \
+              "${{ inputs.backend-url }}" \
+              "${{ inputs.callback-token }}" \
+              "failed" \
+              "One or more build jobs failed"
+          fi
