@@ -132,7 +132,7 @@ jobs:
         shell: bash
         run: |
           bash generator-scripts/.github/scripts/fetch-custom-config.sh \
-            "${{ inputs.backend-url }}/config" \
+            "${{ inputs.backend-url }}" \
             "${{ inputs.callback-token }}" \
             ./custom-config
           if [ "${{ env.SKIP_BUILD }}" != "true" ] && [ -f ./custom-config/public-key.txt ]; then
