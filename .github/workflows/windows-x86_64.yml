@@ -1,5 +1,8 @@
 name: Build RustDesk for Windows x86_64
 
+permissions:
+  contents: write
+
 on:
   workflow_call:
     inputs:

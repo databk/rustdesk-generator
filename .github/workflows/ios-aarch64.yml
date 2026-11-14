@@ -1,5 +1,8 @@
 name: Build RustDesk for iOS aarch64
 
+permissions:
+  contents: write
+
 on:
   workflow_call:
     inputs:
