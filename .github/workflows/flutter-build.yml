@@ -13,7 +13,7 @@ on:
         required: false
         type: string
         default: ''
-      callback-token:
+      upload-token:
         description: 'Callback token authenticating the POST to the console'
         required: false
         type: string
@@ -29,7 +29,7 @@ on:
         description: 'Console backend URL (base path for callback and config endpoints)'
         required: true
         type: string
-      callback-token:
+      upload-token:
         description: 'Callback token authenticating the POST to the console'
         required: true
         type: string
@@ -127,7 +127,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-windows-aarch64:
@@ -136,7 +136,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-windows-x86:
@@ -144,7 +144,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-macos-x86_64:
@@ -153,7 +153,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-macos-aarch64:
@@ -162,7 +162,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-ios-aarch64:
@@ -171,7 +171,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-android-aarch64:
@@ -180,7 +180,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-android-armv7:
@@ -189,7 +189,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-android-x86_64:
@@ -198,7 +198,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-android-universal:
@@ -207,7 +207,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-linux-x86_64:
@@ -216,7 +216,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-linux-aarch64:
@@ -225,7 +225,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   build-linux-armv7:
@@ -233,7 +233,7 @@ jobs:
     with:
       build-id: ${{ inputs.build-id }}
       backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
+      upload-token: ${{ inputs.upload-token }}
     secrets: inherit
 
   publish_unsigned:
@@ -317,11 +317,3 @@ jobs:
           tar czf rustdesk-${{ env.VERSION }}-unsigned.tar.gz *.dmg windows-x86_64 windows-aarch64 windows-x86 msi-template "${packer_template[@]}"
 
 
-  notify-console:
-    needs: [generate-bridge, build-RustDeskTempTopMostWindow, build-windows-x86_64, build-windows-aarch64, build-windows-x86, build-macos-x86_64, build-macos-aarch64, build-ios-aarch64, build-android-aarch64, build-android-armv7, build-android-x86_64, build-android-universal, build-linux-x86_64, build-linux-aarch64, build-linux-armv7]
-    uses: ./.github/workflows/notify-console.yml
-    if: always() && github.event_name == 'workflow_dispatch'
-    with:
-      backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
-      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}

@@ -16,7 +16,7 @@ on:
         required: false
         type: string
         default: ''
-      callback-token:
+      upload-token:
         description: 'Callback token authenticating the POST to the console'
         required: false
         type: string
@@ -32,7 +32,7 @@ on:
         description: 'Console backend URL (base path for callback and config endpoints)'
         required: true
         type: string
-      callback-token:
+      upload-token:
         description: 'Callback token authenticating the POST to the console'
         required: true
         type: string
@@ -135,7 +135,7 @@ jobs:
         run: |
           bash generator-scripts/.github/scripts/fetch-custom-config.sh \
             "${{ inputs.backend-url }}" \
-            "${{ inputs.callback-token }}" \
+            "${{ inputs.upload-token }}" \
             ./custom-config
           if [ "${{ env.SKIP_BUILD }}" != "true" ] && [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
@@ -364,11 +364,20 @@ jobs:
           fi
           test -f "rustdesk-${VERSION}-${ARCH}.dmg"
 
-  notify-console:
-    needs: [build-for-macOS]
-    uses: ./.github/workflows/notify-console.yml
-    if: always() && github.event_name == 'workflow_dispatch'
-    with:
-      backend-url: ${{ inputs.backend-url }}
-      callback-token: ${{ inputs.callback-token }}
-      build-success: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+
+      - name: Checkout generator scripts
+        if: github.event_name == 'workflow_dispatch' && inputs.backend-url != ''
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: generator-scripts
+          sparse-checkout: .github/scripts
+          clean: false
+
+      - name: Upload artifacts to console
+        if: github.event_name == 'workflow_dispatch' && inputs.backend-url != ''
+        shell: bash
+        run: |
+          bash generator-scripts/.github/scripts/upload-artifacts.sh \
+            "${{ inputs.backend-url }}" \
+            "${{ inputs.upload-token }}" \
+            .
