@@ -116,11 +116,18 @@ jobs:
             echo "No base build found, will compile from source"
           fi
 
+      - name: Checkout generator scripts
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: generator-scripts
+          sparse-checkout: .github/scripts
+
       - name: Fetch custom client config
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
         run: |
-          bash .github/scripts/fetch-custom-config.sh \
+          bash generator-scripts/.github/scripts/fetch-custom-config.sh \
             "${{ inputs.backend-url }}/config" \
             "${{ inputs.callback-token }}" \
             ./custom-config
