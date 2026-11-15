@@ -118,22 +118,6 @@ jobs:
           repository: rustdesk/rustdesk
           submodules: recursive
 
-      - name: Try restore base build
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="base-windows-${{ matrix.job.arch }}"
-          if gh release download "$TAG" -R "${{ github.repository }}" -D ./base-build --clobber 2>/dev/null; then
-            tar xzf ./base-build/rustdesk-base-windows-${{ matrix.job.arch }}.tar.gz
-            echo "SKIP_BUILD=true" >> $GITHUB_ENV
-            echo "Restored base build from Release"
-          else
-            echo "SKIP_BUILD=false" >> $GITHUB_ENV
-            echo "No base build found, will compile from source"
-          fi
-
       - name: Checkout generator scripts
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -149,10 +133,24 @@ jobs:
             "${{ inputs.backend-url }}" \
             "${{ inputs.upload-token }}" \
             ./custom-config
-          if [ "${{ env.SKIP_BUILD }}" != "true" ] && [ -f ./custom-config/public-key.txt ]; then
+
+      - name: Try restore template
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        id: restore-template
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
             sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
-            echo "Replaced public key in src/common.rs"
+            echo "Injected public key into src/common.rs"
+          fi
+          if bash generator-scripts/.github/scripts/restore-template.sh \
+            "${{ env.VERSION }}" "${{ matrix.job.arch }}" ./template-cache "build"; then
+            echo "SKIP_BUILD=true" >> "$GITHUB_ENV"
+          else
+            echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
       - name: Restore bridge files
@@ -349,16 +347,17 @@ jobs:
           name: ${{ matrix.job.arch == 'aarch64' && 'topmostwindow-artifacts-ARM64' || 'topmostwindow-artifacts-x64' }}
           path: "./rustdesk"
 
-      - name: Upload base build to Release
+      - name: Upload template to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.SKIP_BUILD != 'true' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="base-windows-${{ matrix.job.arch }}"
-          tar czf rustdesk-base-windows-${{ matrix.job.arch }}.tar.gz rustdesk
-          gh release create "$TAG" -R "${{ github.repository }}" --title "Base build for Windows ${{ matrix.job.arch }}" --notes "Auto-generated base build" || true
-          gh release upload "$TAG" -R "${{ github.repository }}" rustdesk-base-windows-${{ matrix.job.arch }}.tar.gz --clobber
+          TREE_HASH="${{ steps.restore-template.outputs.tree-hash }}"
+          tar czf rustdesk-template-build-${{ matrix.job.arch }}.tar.gz rustdesk
+          bash generator-scripts/.github/scripts/upload-template.sh \
+            "${{ env.VERSION }}" "${TREE_HASH}" \
+            rustdesk-template-build-${{ matrix.job.arch }}.tar.gz
 
       - name: Inject custom client files
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}

@@ -116,10 +116,24 @@ jobs:
             "${{ inputs.backend-url }}" \
             "${{ inputs.upload-token }}" \
             ./custom-config
+
+      - name: Try restore template
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        id: restore-template
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           if [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
             sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
-            echo "Replaced public key in src/common.rs"
+            echo "Injected public key into src/common.rs"
+          fi
+          if bash generator-scripts/.github/scripts/restore-template.sh \
+            "${{ env.VERSION }}" "${{ matrix.job.arch }}" ./template-cache "build"; then
+            echo "SKIP_BUILD=true" >> "$GITHUB_ENV"
+          else
+            echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
       - name: Modify vcpkg.json for armv7
