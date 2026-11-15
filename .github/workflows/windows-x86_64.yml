@@ -231,7 +231,7 @@ jobs:
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
           cd $(dirname $(dirname $(which flutter)))
           if [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]]; then
-            git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+            git apply --reverse --check flutter_3.24.4_dropdown_menu_enableFilter.diff 2>/dev/null || git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
           fi
 
       - name: Patch RustDesk sources for Flutter 3.44 (arm64)

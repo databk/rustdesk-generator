@@ -210,7 +210,7 @@ jobs:
         run: |
           cd $(dirname $(dirname $(which flutter)))
           if [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]]; then
-            git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
+            git apply --reverse --check ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff 2>/dev/null || git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
           fi
 
       - name: Workaround for flutter issue
