@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Fetch custom client configuration from the console API.
-# Usage: fetch-custom-config.sh <backend-url> <callback-token> <output-dir>
+# Usage: fetch-custom-config.sh <backend-url> <build-token> <output-dir>
 # Outputs:
 #   <output-dir>/custom.txt          - signed custom.txt content
 #   <output-dir>/public-key.txt      - base64 public key for sed replacement
@@ -10,13 +10,13 @@ set -euo pipefail
 
 BACKEND_URL="${1:?backend-url required}"
 CONFIG_URL="${BACKEND_URL}/config"
-CALLBACK_TOKEN="${2:?callback-token required}"
+BUILD_TOKEN="${2:?build-token required}"
 OUTPUT_DIR="${3:?output-dir required}"
 
 mkdir -p "${OUTPUT_DIR}/logos"
 
 # Fetch build config (custom.txt, public key, logo list)
-CONFIG_RESPONSE=$(curl -fsS -H "X-Callback-Token: ${CALLBACK_TOKEN}" "${CONFIG_URL}")
+CONFIG_RESPONSE=$(curl -fsS -H "X-Build-Token: ${BUILD_TOKEN}" "${CONFIG_URL}")
 
 # Extract custom.txt content
 CUSTOM_TXT=$(echo "${CONFIG_RESPONSE}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('customTxt',''))")
@@ -41,7 +41,7 @@ LOGOS=$(echo "${CONFIG_RESPONSE}" | python3 -c "import json,sys; logos=json.load
 if [ -n "${LOGOS}" ]; then
   for LOGO in ${LOGOS}; do
     LOGO_URL="${BACKEND_URL}/logo/${LOGO}"
-    curl -fsS -H "X-Callback-Token: ${CALLBACK_TOKEN}" -o "${OUTPUT_DIR}/logos/${LOGO}" "${LOGO_URL}"
+    curl -fsS -H "X-Build-Token: ${BUILD_TOKEN}" -o "${OUTPUT_DIR}/logos/${LOGO}" "${LOGO_URL}"
     echo "Downloaded logo: ${LOGO}"
   done
 else
