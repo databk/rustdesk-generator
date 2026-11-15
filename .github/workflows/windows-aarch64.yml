@@ -69,7 +69,7 @@ env:
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
+  SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
 
 jobs:
   generate-bridge:
@@ -381,15 +381,23 @@ jobs:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: rustdesk
 
+      - name: Checkout signing script
+        if: env.SIGN_BASE_URL != ''
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: generator-scripts
+          sparse-checkout: .github/scripts
+          clean: false
+
       - name: Sign rustdesk files
-        if: env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != ''
         shell: bash
         run: |
-          pip3 install requests argparse
-          BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./rustdesk/
+          pip3 install requests
+          SIGN_BASE_URL=${{ env.SIGN_BASE_URL }} SIGN_API_KEY=${{ secrets.SIGN_API_KEY }} python3 generator-scripts/.github/scripts/sign-files.py sign_files ./rustdesk/
 
       - name: Verify template payload signatures
-        if: env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != ''
         shell: powershell
         run: |
           Get-ChildItem ./rustdesk -Recurse -File -ErrorAction Stop |
@@ -400,7 +408,7 @@ jobs:
             }
 
       - name: Build template packer
-        if: env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != ''
         shell: bash
         run: |
           sed -i '/dpiAware/d' res/manifest.xml
@@ -412,7 +420,7 @@ jobs:
           cp ./target/${{ matrix.job.target }}/release/rustdesk-portable-packer.exe ./packer-template/rustdesk-template-${{ matrix.job.arch }}.exe
 
       - name: Upload unsigned template packer
-        if: env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rustdesk-unsigned-packer-template-${{ matrix.job.arch }}
@@ -500,10 +508,10 @@ jobs:
           path: ./msi-template
 
       - name: Sign rustdesk self-extracted file
-        if: env.SIGN_BASE_URL != '-2'
+        if: env.SIGN_BASE_URL != ''
         shell: bash
         run: |
-          BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput
+          SIGN_BASE_URL=${{ env.SIGN_BASE_URL }} SIGN_API_KEY=${{ secrets.SIGN_API_KEY }} python3 generator-scripts/.github/scripts/sign-files.py sign_files ./SignOutput
 
 
       - name: Checkout generator scripts
