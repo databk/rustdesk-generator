@@ -117,7 +117,6 @@ jobs:
           submodules: recursive
 
       - name: Checkout generator scripts
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           path: generator-scripts
@@ -382,14 +381,6 @@ jobs:
         with:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: rustdesk
-
-      - name: Checkout signing script
-        if: env.SIGN_BASE_URL != ''
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          path: generator-scripts
-          sparse-checkout: .github/scripts
-          clean: false
 
       - name: Sign rustdesk files
         if: env.SIGN_BASE_URL != ''
