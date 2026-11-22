@@ -20,7 +20,11 @@ ARCH="${2:?arch required}"
 OUTPUT_DIR="${3:?output-dir required}"
 TEMPLATE_TYPES="${4:-build}"
 
-TREE_HASH=$(git add -A && git write-tree)
+# Calculate tree hash excluding non-RustDesk-source directories
+# (generator-scripts, custom-config, template-cache) so that the cache
+# key is stable across platforms and runs regardless of generator repo
+# version or custom client config content.
+TREE_HASH=$(git add -A -- ':!generator-scripts' ':!custom-config' ':!template-cache' && git write-tree)
 TAG="template-${VERSION}-${TREE_HASH:0:7}"
 
 echo "Tree hash: ${TREE_HASH}"
