@@ -1,0 +1,446 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/starwind/card';
+import { Button } from '@/components/starwind/button';
+import { Input } from '@/components/starwind/input';
+import { Label } from '@/components/starwind/label';
+import { Switch } from '@/components/starwind/switch';
+import { Textarea } from '@/components/starwind/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/starwind/tabs';
+import { Badge } from '@/components/starwind/badge';
+
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/starwind/accordion';
+import { OS_OPTIONS, ARCH_OPTIONS, CONN_TYPE_OPTIONS, FEATURE_TOGGLES } from '@/lib/constants';
+import { configCategories, getOptionsByCategory, humanizeConfigOptionKey, configOptionsMap } from '@/lib/config';
+
+const archOptionsJson = JSON.stringify(ARCH_OPTIONS);
+const configOptionsMapJson = JSON.stringify(configOptionsMap);
+---
+
+<Layout title="RustDesk Custom Client Builder">
+ ,  <div class="min-h-screen">
+    <header class="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="size-9 rounded-lg bg-primary flex items-center justify-center">
+            <svg class="size-5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M8 21h8M12 17v4" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-semibold leading-tight">RustDesk Generator</h1>
+            <p class="text-xs text-muted-foreground">Custom Client Builder</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" id="theme-toggle">
+          <svg class="size-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </svg>
+          <svg class="size-4 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </Button>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-8">
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold tracking-tight">Build Your Custom RustDesk Client</h2>
+        <p class="mt-2 text-muted-foreground">
+          Configure platform, branding, and advanced settings to generate a customized RustDesk build.
+        </p>
+      </div>
+
+      <div id="error-banner" class="hidden mb-6">
+        <div class="rounded-lg border border-error/30 bg-error/10 p-4">
+          <p id="error-text" class="text-sm text-error-foreground"></p>
+        </div>
+      </div>
+
+      <form id="build-form" class="space-y-6">
+        <Tabs default-value="platform">
+          <TabsList class="grid w-full grid-cols-4">
+            <TabsTrigger value="platform">Platform</TabsTrigger>
+            <TabsTrigger value="branding">Branding</TabsTrigger>
+            <TabsTrigger value="features">Features</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="platform" class="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Target Platform</CardTitle>
+                <CardDescription>Select the operating system and architecture for your build</CardDescription>
+              </CardHeader>
+              <CardContent class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="space-y-2">
+                    <Label for="os-select">Operating System</Label>
+                    <select id="os-select" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                      {OS_OPTIONS.map((opt) => (
+                        <option value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div class="space-y-2" id="arch-wrapper" style="display:none">
+                    <Label for="arch-select">Architecture</Label>
+                    <select id="arch-select" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                      <option value="">Select architecture</option>
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Connection Type</CardTitle>
+                <CardDescription>Choose how the client connects to peers</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div class="grid grid-cols-3 gap-3">
+                  {CONN_TYPE_OPTIONS.map((opt) => (
+                    <label class="flex flex-col items-center gap-2 rounded-lg border border-input p-4 cursor-pointer hover:bg-accent transition-colors conn-type-label" data-conn-value={opt.value}>
+                      <input type="radio" name="conn_type" value={opt.value} class="sr-only" />
+                      <span class="text-sm font-medium">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="branding" class="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Application Identity</CardTitle>
+                <CardDescription>Customize the app name and credentials</CardDescription>
+              </CardHeader>
+              <CardContent class="space-y-4">
+                <div class="space-y-2">
+                  <Label for="app_name">App Name</Label>
+                  <Input id="app_name" name="app_name" type="text" placeholder="e.g. MyCompany Remote" />
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="space-y-2">
+                    <Label for="password">Password</Label>
+                    <Input id="password" name="password" type="text" placeholder="Optional" />
+                  </div>
+                  <div class="space-y-2">
+                    <Label for="salt">Salt</Label>
+                    <Input id="salt" name="salt" type="text" placeholder="Optional" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Logo Upload</CardTitle>
+                <CardDescription>Upload custom app icons/logos (PNG, JPEG, SVG, ICO)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div class="flex items-center gap-4">
+                  <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/x-icon" class="text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20" />
+                  <Button type="button" variant="secondary" size="sm" id="logo-upload-btn">Upload</Button>
+                  <span id="logo-status" class="text-sm text-success-foreground hidden"></span>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="features" class="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Feature Toggles</CardTitle>
+                <CardDescription>Enable or disable specific client features</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div class="space-y-3">
+                  {FEATURE_TOGGLES.map((toggle) => (
+                    <div class="flex items-center justify-between rounded-lg border border-border p-3">
+                      <Label for={`toggle-${toggle.key}`} class="cursor-pointer">{toggle.label}</Label>
+                      <Switch id={`toggle-${toggle.key}`} name={toggle.key} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Override Settings (JSON)</CardTitle>
+                <CardDescription>Provide custom settings that override defaults</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea id="override_settings" name="override_settings" placeholder='e.g. {"theme": "dark"}' rows={3} class="font-mono" />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Default Settings (JSON)</CardTitle>
+                <CardDescription>Provide default settings for the client</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea id="default_settings" name="default_settings" placeholder='e.g. {"server": "my.server.com"}' rows={3} class="font-mono" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="advanced" class="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Advanced Configuration</CardTitle>
+                <CardDescription>Fine-tune client behavior with detailed configuration options</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="single" collapsible class="w-full">
+                  {configCategories.map((category) => (
+                    <AccordionItem value={category.key}>
+                      <AccordionTrigger class="text-sm font-medium">
+                        <span>{category.label}</span>
+                        <Badge variant="secondary" class="ml-2 text-xs">{getOptionsByCategory(category.key).length}</Badge>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div class="space-y-3 pt-2">
+                          {getOptionsByCategory(category.key).map((option) => (
+                            <div class="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+                              <div class="flex-1 min-w-0">
+                                <span class="text-sm font-medium">{humanizeConfigOptionKey(option.key)}</span>
+                                {option.description && (
+                                  <p class="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                                )}
+                              </div>
+                              <div class="flex-shrink-0">
+                                {option.type === 'switch' && (
+                                  <select data-config-key={option.key} data-config-type="switch" class="rounded-md border border-input bg-background px-2 py-1 text-xs">
+                                    <option value="N" selected={option.defaultValue === 'N'}>Off</option>
+                                    <option value="Y" selected={option.defaultValue === 'Y'}>On</option>
+                                  </select>
+                                )}
+                                {option.type === 'select' && (
+                                  <select data-config-key={option.key} data-config-type="select" class="rounded-md border border-input bg-background px-2 py-1 text-xs">
+                                    {option.options?.map((val) => (
+                                      <option value={val} selected={option.defaultValue === val}>{val}</option>
+                                    ))}
+                                  </select>
+                                )}
+                                {option.type === 'number' && (
+                                  <input type="number" data-config-key={option.key} data-config-type="number" value={option.defaultValue} min={option.min} max={option.max} class="w-20 rounded-md border border-input bg-background px-2 py-1 text-xs" />
+                                )}
+                                {option.type === 'text' && (
+                                  <input type="text" data-config-key={option.key} data-config-type="text" value={option.defaultValue} placeholder="Enter value" class="w-40 rounded-md border border-input bg-background px-2 py-1 text-xs" />
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <div class="flex items-center justify-between pt-4">
+          <div class="text-sm text-muted-foreground">
+            <span id="modified-count">0</span> options modified
+          </div>
+          <div class="flex items-center gap-3">
+            <Button type="button" variant="ghost" id="reset-btn">Reset</Button>
+            <Button type="submit" size="lg" id="submit-btn">
+              <span id="submit-text">Build Custom Client</span>
+            </Button>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script is:inline define:vars={{ archOptionsJson, configOptionsMapJson }}>
+    window.__archOptions = JSON.parse(archOptionsJson);
+    window.__configOptionsMap = JSON.parse(configOptionsMapJson);
+  </script>
+
+  <script>
+    // @ts-nocheck
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+    const osSelect = document.getElementById('os-select');
+    const archWrapper = document.getElementById('arch-wrapper');
+    const archSelect = document.getElementById('arch-select');
+    const buildForm = document.getElementById('build-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const errorBanner = document.getElementById('error-banner');
+    const errorText = document.getElementById('error-text');
+    const logoFile = document.getElementById('logo-file');
+    const logoUploadBtn = document.getElementById('logo-upload-btn');
+    const logoStatus = document.getElementById('logo-status');
+    const resetBtn = document.getElementById('reset-btn');
+    const modifiedCount = document.getElementById('modified-count');
+    const themeToggle = document.getElementById('theme-toggle');
+
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorBanner.classList.add('hidden');
+    }
+
+    function updateArchOptions() {
+      const os = osSelect.value;
+      const archOpts = window.__archOptions[os] || [];
+      if (archOpts.length === 0) {
+        archWrapper.style.display = 'none';
+        archSelect.innerHTML = '';
+      } else {
+        archWrapper.style.display = '';
+        archSelect.innerHTML = '<option value="">Select architecture</option>' +
+          archOpts.map(function(o) { return '<option value="' + o.value + '">' + o.label + '</option>'; }).join('');
+      }
+    }
+
+    function updateModifiedCount() {
+      const advancedEls = document.querySelectorAll('[data-config-key]');
+      let count = 0;
+      advancedEls.forEach(function(el) {
+        const key = el.dataset.configKey;
+        const opt = window.__configOptionsMap[key];
+        if (opt) {
+          const val = el.value;
+          if (val !== opt.defaultValue) count++;
+        }
+      });
+      modifiedCount.textContent = String(count);
+    }
+
+    osSelect.addEventListener('change', updateArchOptions);
+    updateArchOptions();
+
+    document.querySelectorAll('[data-config-key]').forEach(function(el) {
+      el.addEventListener('change', updateModifiedCount);
+    });
+
+    themeToggle.addEventListener('click', function() {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+    });
+
+    document.querySelectorAll('.conn-type-label').forEach(function(el) {
+      el.addEventListener('click', function() {
+        document.querySelectorAll('.conn-type-label').forEach(function(e) {
+          e.classList.remove('border-primary', 'bg-primary/10');
+        });
+        el.classList.add('border-primary', 'bg-primary/10');
+        const radio = el.querySelector('input[type="radio"]');
+        radio.checked = true;
+      });
+    });
+
+    logoUploadBtn.addEventListener('click', async function() {
+      const file = logoFile.files && logoFile.files[0];
+      if (!file) return;
+      logoUploadBtn.disabled = true;
+      logoStatus.classList.add('hidden');
+      try {
+        const formData = new FormData();
+        formData.append('logo', file);
+        const res = await fetch(API_URL + '/api/upload-logo', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const result = await res.json();
+        logoStatus.textContent = 'Uploaded: ' + result.filename;
+        logoStatus.classList.remove('hidden');
+      } catch (e) {
+        showError(e instanceof Error ? e.message : 'Logo upload failed');
+      } finally {
+        logoUploadBtn.disabled = false;
+      }
+    });
+
+    resetBtn.addEventListener('click', function() {
+      buildForm.reset();
+      updateArchOptions();
+      updateModifiedCount();
+      document.querySelectorAll('.conn-type-label').forEach(function(e) {
+        e.classList.remove('border-primary', 'bg-primary/10');
+      });
+    });
+
+    buildForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      hideError();
+
+      const formData = new FormData(buildForm);
+      const custom = {};
+
+      const appName = formData.get('app_name');
+      if (appName) custom.app_name = appName;
+      const password = formData.get('password');
+      if (password) custom.password = password;
+      const salt = formData.get('salt');
+      if (salt) custom.salt = salt;
+
+      const connType = formData.get('conn_type');
+      if (connType) custom.conn_type = connType;
+
+      const featureKeys = ['disable_installation', 'disable_settings', 'disable_account', 'disable_ab', 'disable_tcp_listen'];
+      featureKeys.forEach(function(key) {
+        const val = formData.get(key);
+        if (val === 'on') custom[key] = true;
+      });
+
+      const overrideSettings = formData.get('override_settings');
+      if (overrideSettings) custom.override_settings = overrideSettings;
+      const defaultSettings = formData.get('default_settings');
+      if (defaultSettings) custom.default_settings = defaultSettings;
+
+      document.querySelectorAll('[data-config-key]').forEach(function(el) {
+        const key = el.dataset.configKey;
+        const val = el.value;
+        const opt = window.__configOptionsMap[key];
+        if (opt && val !== opt.defaultValue) {
+          custom[key] = val;
+        }
+      });
+
+      submitBtn.disabled = true;
+      submitText.textContent = 'Building...';
+
+      try {
+        const res = await fetch(API_URL + '/api/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            os: osSelect.value,
+            arch: archSelect.value || undefined,
+            custom: custom,
+          }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || 'HTTP ' + res.status);
+        }
+        const result = await res.json();
+        window.location.href = '/build?id=' + result.uuid;
+      } catch (e) {
+        showError(e instanceof Error ? e.message : 'Build trigger failed');
+        submitBtn.disabled = false;
+        submitText.textContent = 'Build Custom Client';
+      }
+    });
+  </script>
+</Layout>

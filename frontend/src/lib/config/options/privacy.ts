@@ -1,0 +1,61 @@
+import type { ConfigOption } from '../types';
+
+export const options: ConfigOption[] = [
+  {
+    key: 'enable-record-session',
+    label: 'enable-record-session',
+    category: 'privacy',
+    type: 'switch',
+    defaultValue: 'Y',
+    options: ['Y', 'N'],
+    strategySupported: true,
+  },
+  {
+    key: 'allow-auto-record-incoming',
+    label: 'allow-auto-record-incoming',
+    category: 'privacy',
+    type: 'switch',
+    defaultValue: 'N',
+    options: ['Y', 'N'],
+    strategySupported: true,
+  },
+  {
+    key: 'allow-auto-record-outgoing',
+    label: 'allow-auto-record-outgoing',
+    category: 'privacy',
+    type: 'switch',
+    defaultValue: 'N',
+    options: ['Y', 'N'],
+  },
+  {
+    key: 'privacy_mode',
+    label: 'privacy_mode',
+    category: 'privacy',
+    type: 'switch',
+    defaultValue: 'N',
+    options: ['Y', 'N'],
+  },
+  {
+    key: 'windows-service-video-save-directory',
+    label: 'windows-service-video-save-directory',
+    category: 'privacy',
+    type: 'text',
+    defaultValue: '',
+    description: 'Absolute path for service-mode recording storage',
+  },
+  {
+    key: 'hide-recording-button',
+    label: 'hide-recording-button',
+    category: 'privacy',
+    type: 'switch',
+    defaultValue: 'N',
+    options: ['Y', 'N'],
+  },
+  {
+    key: 'video-save-directory',
+    label: 'video-save-directory',
+    category: 'privacy',
+    type: 'text',
+    defaultValue: '',
+  },
+];

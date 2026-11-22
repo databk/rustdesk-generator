@@ -1,0 +1,13 @@
+---
+import type { HTMLAttributes } from "astro/types";
+
+import { cardAction } from "./variants";
+
+type Props = HTMLAttributes<"div">;
+
+const { class: className, ...rest } = Astro.props;
+---
+
+<div {...rest} data-sw-card-action class={cardAction({ class: className })} data-slot="card-action">
+  <slot />
+</div>

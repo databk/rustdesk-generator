@@ -1,0 +1,23 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import type { VariantProps } from "tailwind-variants";
+
+import { textarea } from "./variants";
+
+interface Props
+  extends Omit<HTMLAttributes<"textarea">, "children">, VariantProps<typeof textarea> {
+  defaultValue?: string | null;
+  value?: string | null;
+}
+
+const {
+  size,
+  defaultValue,
+  value,
+  "data-slot": dataSlot = "textarea",
+  class: className,
+  ...rest
+} = Astro.props;
+---
+
+<textarea {...rest} data-sw-textarea class={textarea({ size, class: className })} data-slot={dataSlot}>{value ?? defaultValue}</textarea>
