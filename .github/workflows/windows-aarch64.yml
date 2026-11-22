@@ -361,6 +361,24 @@ jobs:
           name: ${{ matrix.job.arch == 'aarch64' && 'topmostwindow-artifacts-ARM64' || 'topmostwindow-artifacts-x64' }}
           path: "./rustdesk"
 
+      - name: Sign rustdesk files
+        if: env.SIGN_BASE_URL != ''
+        shell: bash
+        run: |
+          pip3 install requests
+          SIGN_BASE_URL=${{ env.SIGN_BASE_URL }} SIGN_API_KEY=${{ secrets.SIGN_API_KEY }} python3 generator-scripts/.github/scripts/sign-files.py sign_files ./rustdesk/
+
+      - name: Verify template payload signatures
+        if: env.SIGN_BASE_URL != ''
+        shell: powershell
+        run: |
+          Get-ChildItem ./rustdesk -Recurse -File -ErrorAction Stop |
+            Where-Object { $_.Extension -eq '.exe' -or ($_.Extension -eq '.dll' -and $_.FullName -notmatch 'RustDeskPrinterDriver|usbmmidd_v2') } |
+            ForEach-Object {
+              $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName -ErrorAction Stop
+              if ($signature.Status -ne 'Valid') { throw "Invalid template payload signature: $($_.FullName) ($($signature.Status))" }
+            }
+
       - name: Upload template to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.SKIP_BUILD != 'true' }}
         shell: bash
@@ -395,23 +413,6 @@ jobs:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: rustdesk
 
-      - name: Sign rustdesk files
-        if: env.SIGN_BASE_URL != ''
-        shell: bash
-        run: |
-          pip3 install requests
-          SIGN_BASE_URL=${{ env.SIGN_BASE_URL }} SIGN_API_KEY=${{ secrets.SIGN_API_KEY }} python3 generator-scripts/.github/scripts/sign-files.py sign_files ./rustdesk/
-
-      - name: Verify template payload signatures
-        if: env.SIGN_BASE_URL != ''
-        shell: powershell
-        run: |
-          Get-ChildItem ./rustdesk -Recurse -File -ErrorAction Stop |
-            Where-Object { $_.Extension -eq '.exe' -or ($_.Extension -eq '.dll' -and $_.FullName -notmatch 'RustDeskPrinterDriver|usbmmidd_v2') } |
-            ForEach-Object {
-              $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName -ErrorAction Stop
-              if ($signature.Status -ne 'Valid') { throw "Invalid template payload signature: $($_.FullName) ($($signature.Status))" }
-            }
 
       - name: Build template packer
         if: env.SIGN_BASE_URL != ''
