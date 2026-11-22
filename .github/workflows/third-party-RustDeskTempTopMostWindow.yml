@@ -1,4 +1,4 @@
-name: build RustDeskTempTopMostWindow
+name: Build RustDeskTempTopMostWindow
 
 on:
   workflow_call:

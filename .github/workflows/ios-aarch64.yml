@@ -64,7 +64,7 @@ env:
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
   VCPKG_CMAKE_VERSION: "4.3.0"
   ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836" # 2025.01.13, got "/opt/artifacts/vcpkg/vcpkg: No such file or directory" with latest version
-  VERSION: "1.5.1"
+  VERSION: "1.5.3"
   NDK_VERSION: "r28c"
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
@@ -101,11 +101,13 @@ jobs:
       - name: Install dependencies
         run: |
           brew install nasm yasm
+
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+          ref: ${{ env.VERSION }}
 
       - name: Checkout generator scripts
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
