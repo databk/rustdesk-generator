@@ -6,8 +6,8 @@ backend/data/
 
 # Frontend
 frontend/node_modules/
-frontend/.next/
-frontend/out/
+frontend/dist/
+frontend/.astro/
 frontend/.env*.local
 
 # OS
