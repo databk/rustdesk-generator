@@ -192,7 +192,6 @@ jobs:
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
-
       - name: Rename custom.txt to databk.txt in source
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
@@ -204,6 +203,7 @@ jobs:
           grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
             sed -i 's/custom\.txt/databk.txt/g' "$f"
           done
+
       - name: Install flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:

@@ -152,7 +152,6 @@ jobs:
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
-
       - name: Rename custom.txt to databk.txt in source
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
@@ -164,6 +163,7 @@ jobs:
           grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
             sed -i 's/custom\.txt/databk.txt/g' "$f"
           done
+
       - name: Set Swap Space
         uses: pierotofy/set-swap-space@49819abfb41bd9b44fb781159c033dba90353a7c # v1.0
         with:

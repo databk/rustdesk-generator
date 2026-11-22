@@ -144,7 +144,6 @@ jobs:
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
-
       - name: Rename custom.txt to databk.txt in source
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
         shell: bash
@@ -156,6 +155,7 @@ jobs:
           grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
             sed -i 's/custom\.txt/databk.txt/g' "$f"
           done
+
       - name: Import the codesign cert
         if: env.MACOS_P12_BASE64 != null && env.SKIP_BUILD != 'true'
         uses: apple-actions/import-codesign-certs@253ddeeac23f2bdad1646faac5c8c2832e800071 # v1
