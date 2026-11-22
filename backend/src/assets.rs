@@ -6,7 +6,7 @@ use axum::{
 use rust_embed::Embed;
 
 #[derive(Embed)]
-#[folder = "../frontend/out/"]
+#[folder = "../frontend/dist/"]
 struct Assets;
 
 pub async fn serve_static(uri: Uri) -> Response {

@@ -1,12 +1,12 @@
 # Stage 1: Build frontend
 FROM node:22-slim AS frontend-builder
 
-ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
+ARG PUBLIC_TURNSTILE_SITE_KEY=""
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV PUBLIC_TURNSTILE_SITE_KEY=$PUBLIC_TURNSTILE_SITE_KEY
 RUN npm run build
 
 # Stage 2: Build backend (includes frontend assets via rust-embed)
@@ -16,7 +16,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY backend/Cargo.toml backend/Cargo.lock ./backend/
 COPY backend/src/ ./backend/src/
-COPY --from=frontend-builder /app/frontend/out ./frontend/out/
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist/
 RUN cargo build --release --manifest-path backend/Cargo.toml
 
 # Stage 3: Runtime (single binary, no static files needed)
