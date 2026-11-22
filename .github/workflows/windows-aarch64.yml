@@ -519,7 +519,6 @@ jobs:
         run: |
           SIGN_BASE_URL=${{ env.SIGN_BASE_URL }} SIGN_API_KEY=${{ secrets.SIGN_API_KEY }} python3 generator-scripts/.github/scripts/sign-files.py sign_files ./SignOutput
 
-
       - name: Checkout generator scripts
         if: github.event_name == 'workflow_dispatch' && inputs.backend-url != ''
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

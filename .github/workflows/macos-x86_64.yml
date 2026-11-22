@@ -377,7 +377,6 @@ jobs:
           fi
           test -f "rustdesk-${VERSION}-${ARCH}.dmg"
 
-
       - name: Checkout generator scripts
         if: github.event_name == 'workflow_dispatch' && inputs.backend-url != ''
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
