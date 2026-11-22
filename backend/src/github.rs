@@ -80,7 +80,7 @@ impl GitHubClient {
 
 pub fn resolve_workflow_file(os: &str, arch: &str) -> Result<String> {
     if os == "all" {
-        return Ok("flutter-build.yml".into());
+        return Ok("build-rustdesk.yml".into());
     }
     let key = format!("{}/{}", os, arch);
     let map: &[(&str, &str)] = &[
