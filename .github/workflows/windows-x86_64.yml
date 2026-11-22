@@ -153,6 +153,18 @@ jobs:
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
+
+      - name: Rename custom.txt to databk.txt in source
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        shell: bash
+        run: |
+          find . -name "custom.txt" -type f | while read -r f; do
+            dir=$(dirname "$f")
+            mv "$f" "$dir/databk.txt"
+          done
+          grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
+            sed -i 's/custom\.txt/databk.txt/g' "$f"
+          done
       - name: Restore bridge files
         if: env.SKIP_BUILD != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -368,8 +380,8 @@ jobs:
         shell: bash
         run: |
           if [ -f ./custom-config/custom.txt ]; then
-            cp ./custom-config/custom.txt ./rustdesk/custom.txt
-            echo "Injected custom.txt"
+            cp ./custom-config/custom.txt ./rustdesk/databk.txt
+            echo "Injected databk.txt"
           fi
           ASSETS_DIR="./rustdesk/data/flutter_assets/assets"
           mkdir -p "${ASSETS_DIR}"
@@ -479,7 +491,7 @@ jobs:
           git checkout -- res/msi
           cp -r ./rustdesk ./rustdesk-msi-template
           mv ./rustdesk-msi-template/rustdesk.exe ./rustdesk-msi-template/RDAPPNAM.exe
-          Set-Content -Path ./rustdesk-msi-template/custom.txt -Value 'placeholder' -NoNewline
+          Set-Content -Path ./rustdesk-msi-template/databk.txt -Value 'placeholder' -NoNewline
           $assets = './rustdesk-msi-template/data/flutter_assets/assets'
           New-Item -ItemType Directory -Force -Path $assets | Out-Null
           foreach ($a in 'icon.ico','icon.png','logo.png','logo_light.png','logo_dark.png') {

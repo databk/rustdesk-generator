@@ -138,6 +138,18 @@ jobs:
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
+
+      - name: Rename custom.txt to databk.txt in source
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        shell: bash
+        run: |
+          find . -name "custom.txt" -type f | while read -r f; do
+            dir=$(dirname "$f")
+            mv "$f" "$dir/databk.txt"
+          done
+          grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
+            sed -i 's/custom\.txt/databk.txt/g' "$f"
+          done
       - name: Install LLVM and Clang
         if: env.SKIP_BUILD != 'true'
         uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce # no release tag; commit 2026-05-26
@@ -249,8 +261,8 @@ jobs:
         shell: bash
         run: |
           if [ -f ./custom-config/custom.txt ]; then
-            cp ./custom-config/custom.txt ./Release/custom.txt
-            echo "Injected custom.txt"
+            cp ./custom-config/custom.txt ./Release/databk.txt
+            echo "Injected databk.txt"
           fi
           ASSETS_DIR="./Release/data/flutter_assets/assets"
           mkdir -p "${ASSETS_DIR}"

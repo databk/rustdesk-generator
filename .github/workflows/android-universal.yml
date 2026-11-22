@@ -239,8 +239,8 @@ jobs:
           ASSETS_DIR="./flutter/assets"
           mkdir -p "${ASSETS_DIR}"
           if [ -f ./custom-config/custom.txt ]; then
-            cp ./custom-config/custom.txt "${ASSETS_DIR}/custom.txt"
-            echo "Injected custom.txt"
+            cp ./custom-config/custom.txt "${ASSETS_DIR}/databk.txt"
+            echo "Injected databk.txt"
           fi
           for LOGO in ./custom-config/logos/*; do
             [ -f "${LOGO}" ] || continue

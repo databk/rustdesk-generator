@@ -192,6 +192,18 @@ jobs:
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
           fi
 
+      - name: Rename custom.txt to databk.txt in source
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}
+        shell: bash
+        run: |
+          find . -name "custom.txt" -type f | while read -r f; do
+            dir=$(dirname "$f")
+            mv "$f" "$dir/databk.txt"
+          done
+          grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
+            sed -i 's/custom\.txt/databk.txt/g' "$f"
+          done
+
       - name: Install flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -326,8 +338,8 @@ jobs:
           ASSETS_DIR="./flutter/assets"
           mkdir -p "${ASSETS_DIR}"
           if [ -f ./custom-config/custom.txt ]; then
-            cp ./custom-config/custom.txt "${ASSETS_DIR}/custom.txt"
-            echo "Injected custom.txt"
+            cp ./custom-config/custom.txt "${ASSETS_DIR}/databk.txt"
+            echo "Injected databk.txt"
           fi
           for LOGO in ./custom-config/logos/*; do
             [ -f "${LOGO}" ] || continue
