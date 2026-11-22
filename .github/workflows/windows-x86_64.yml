@@ -415,7 +415,6 @@ jobs:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: rustdesk
 
-
       - name: Build template packer
         if: env.SIGN_BASE_URL != ''
         shell: bash
