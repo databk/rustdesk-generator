@@ -139,7 +139,7 @@ jobs:
             echo "Injected public key into src/common.rs"
           fi
           if bash generator-scripts/.github/scripts/restore-template.sh \
-            "${{ env.VERSION }}" "${{ matrix.job.arch }}" ./template-cache "build"; then
+            "${{ env.VERSION }}" "ios" "${{ matrix.job.arch }}" ./template-cache; then
             echo "SKIP_BUILD=true" >> "$GITHUB_ENV"
           else
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
@@ -238,10 +238,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TREE_HASH="${{ steps.restore-template.outputs.tree-hash }}"
-          tar czf rustdesk-template-build-${{ matrix.job.arch }}.tar.gz target/aarch64-apple-ios/release/liblibrustdesk.a
+          tar czf rustdesk-template-ios-${{ matrix.job.arch }}.tar.gz target/aarch64-apple-ios/release/liblibrustdesk.a
           bash generator-scripts/.github/scripts/upload-template.sh \
             "${{ env.VERSION }}" "${TREE_HASH}" \
-            rustdesk-template-build-${{ matrix.job.arch }}.tar.gz
+            rustdesk-template-ios-${{ matrix.job.arch }}.tar.gz
 
       - name: Inject custom client files
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}

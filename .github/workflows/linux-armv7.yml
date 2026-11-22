@@ -131,7 +131,7 @@ jobs:
             echo "Injected public key into src/common.rs"
           fi
           if bash generator-scripts/.github/scripts/restore-template.sh \
-            "${{ env.VERSION }}" "${{ matrix.job.arch }}" ./template-cache "build"; then
+            "${{ env.VERSION }}" "linux" "${{ matrix.job.arch }}" ./template-cache; then
             echo "SKIP_BUILD=true" >> "$GITHUB_ENV"
           else
             echo "SKIP_BUILD=false" >> "$GITHUB_ENV"
