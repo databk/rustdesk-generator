@@ -1,8 +1,5 @@
 name: Build RustDesk for Android armv7
 
-permissions:
-  contents: write
-
 on:
   workflow_call:
     inputs:
@@ -42,6 +39,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
   RUST_VERSION: "1.75" # sciter failed on m1 with 1.78 because of https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -80,6 +80,7 @@ jobs:
   generate-bridge:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/bridge.yml
+
   build-rustdesk-android:
     needs: [generate-bridge]
     if: ${{ !failure() && !cancelled() }}

@@ -34,7 +34,6 @@ on:
         required: true
         type: string
 
-
 # NOTE: F-Droid builder script 'flutter/build_fdroid.sh' reads environment
 # variables from this workflow!
 #
@@ -235,6 +234,3 @@ jobs:
       backend-url: ${{ inputs.backend-url }}
       build-token: ${{ inputs.build-token }}
     secrets: inherit
-
-
-

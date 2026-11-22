@@ -1,8 +1,5 @@
 name: Build RustDesk for Windows aarch64
 
-permissions:
-  contents: write
-
 on:
   workflow_call:
     inputs:
@@ -36,6 +33,9 @@ on:
         description: 'Callback token authenticating the POST to the console'
         required: true
         type: string
+
+permissions:
+  contents: write
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -75,6 +75,7 @@ jobs:
   generate-bridge:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/bridge.yml
+
   build-topmostwindow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
@@ -83,6 +84,7 @@ jobs:
       configuration: Release
       platform: ARM64
       target_version: Windows10
+
   build-for-windows-flutter:
     needs: [generate-bridge, build-topmostwindow]
     if: ${{ !failure() && !cancelled() }}
