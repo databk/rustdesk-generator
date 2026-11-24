@@ -75,6 +75,8 @@ jobs:
   generate-bridge:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/bridge.yml
+    with:
+      rustdesk-ref: "1.5.3"
 
   build-topmostwindow:
     if: ${{ github.event_name == 'workflow_dispatch' }}

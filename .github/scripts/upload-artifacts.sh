@@ -22,6 +22,14 @@ if [ "${#FILES_ARGS[@]}" -eq 0 ]; then
   exit 0
 fi
 
-curl -fsS -X POST "${BACKEND_URL}/upload" \
+echo "Uploading ${#FILES_ARGS[@]} artifact file(s) to Console: ${BACKEND_URL}/upload"
+for f in "$ARTIFACT_DIR"/*; do
+  [ -f "$f" ] && ls -lh "$f"
+done
+
+# Show transfer progress; keep waiting until the Console responds.
+curl --fail --show-error --progress-bar \
+  --write-out '\nHTTP %{http_code}; uploaded %{size_upload} bytes in %{time_total}s\n' \
+  -X POST "${BACKEND_URL}/upload" \
   -H "X-Build-Token: ${BUILD_TOKEN}" \
   "${FILES_ARGS[@]}"
