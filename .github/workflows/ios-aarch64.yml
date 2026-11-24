@@ -135,7 +135,16 @@ jobs:
         run: |
           if [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
-            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
+            python3 - <<'PY'
+            from pathlib import Path
+            path = Path("src/common.rs")
+            content = path.read_text()
+            old_key = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM="
+            new_key = Path("./custom-config/public-key.txt").read_text().strip()
+            if old_key not in content:
+                raise SystemExit("Default public key not found in src/common.rs")
+            path.write_text(content.replace(old_key, new_key))
+            PY
             echo "Injected public key into src/common.rs"
           fi
           if bash generator-scripts/.github/scripts/restore-template.sh \
