@@ -10,9 +10,14 @@ import { Badge } from '@/components/starwind/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/starwind/accordion';
 import { OS_OPTIONS, ARCH_OPTIONS, CONN_TYPE_OPTIONS, FEATURE_TOGGLES } from '@/lib/constants';
 import { configCategories, getOptionsByCategory, humanizeConfigOptionKey, configOptionsMap } from '@/lib/config';
+import { translations as uiTranslations, LOCALES } from '@/lib/i18n/translations';
+import { optionTranslations } from '@/lib/i18n/option-translations';
 
 const archOptionsJson = JSON.stringify(ARCH_OPTIONS);
 const configOptionsMapJson = JSON.stringify(configOptionsMap);
+const uiTranslationsJson = JSON.stringify(uiTranslations);
+const optionTranslationsJson = JSON.stringify(optionTranslations);
+const localesJson = JSON.stringify(LOCALES);
 ---
 
 <Layout title="RustDesk Custom Client Builder">
@@ -27,26 +32,33 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
             </svg>
           </div>
           <div>
-            <h1 class="text-lg font-semibold leading-tight">RustDesk Generator</h1>
-            <p class="text-xs text-muted-foreground">Custom Client Builder</p>
+            <h1 class="text-lg font-semibold leading-tight" data-i18n="app.title">RustDesk Generator</h1>
+            <p class="text-xs text-muted-foreground" data-i18n="app.subtitle">Custom Client Builder</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" id="theme-toggle">
-          <svg class="size-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-          </svg>
-          <svg class="size-4 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        </Button>
+        <div class="flex items-center gap-2">
+          <select id="lang-select" class="rounded-md border border-input bg-background px-2 py-1 text-xs">
+            {LOCALES.map((l) => (
+              <option value={l.value}>{l.label}</option>
+            ))}
+          </select>
+          <Button variant="ghost" size="sm" id="theme-toggle">
+            <svg class="size-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+            <svg class="size-4 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          </Button>
+        </div>
       </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4 py-8">
       <div class="mb-8">
-        <h2 class="text-2xl font-bold tracking-tight">Build Your Custom RustDesk Client</h2>
-        <p class="mt-2 text-muted-foreground">
+        <h2 class="text-2xl font-bold tracking-tight" data-i18n="page.heading">Build Your Custom RustDesk Client</h2>
+        <p class="mt-2 text-muted-foreground" data-i18n="page.description">
           Configure platform, branding, and advanced settings to generate a customized RustDesk build.
         </p>
       </div>
@@ -60,22 +72,22 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       <form id="build-form" class="space-y-6">
         <Tabs default-value="platform">
           <TabsList class="grid w-full grid-cols-4">
-            <TabsTrigger value="platform">Platform</TabsTrigger>
-            <TabsTrigger value="branding">Branding</TabsTrigger>
-            <TabsTrigger value="features">Features</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+            <TabsTrigger value="platform" data-i18n="tab.platform">Platform</TabsTrigger>
+            <TabsTrigger value="branding" data-i18n="tab.branding">Branding</TabsTrigger>
+            <TabsTrigger value="features" data-i18n="tab.features">Features</TabsTrigger>
+            <TabsTrigger value="advanced" data-i18n="tab.advanced">Advanced</TabsTrigger>
           </TabsList>
 
           <TabsContent value="platform" class="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Target Platform</CardTitle>
-                <CardDescription>Select the operating system and architecture for your build</CardDescription>
+                <CardTitle data-i18n="card.targetPlatform.title">Target Platform</CardTitle>
+                <CardDescription data-i18n="card.targetPlatform.description">Select the operating system and architecture for your build</CardDescription>
               </CardHeader>
               <CardContent class="space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div class="space-y-2">
-                    <Label for="os-select">Operating System</Label>
+                    <Label for="os-select" data-i18n="label.os">Operating System</Label>
                     <select id="os-select" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                       {OS_OPTIONS.map((opt) => (
                         <option value={opt.value}>{opt.label}</option>
@@ -83,9 +95,9 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                     </select>
                   </div>
                   <div class="space-y-2" id="arch-wrapper" style="display:none">
-                    <Label for="arch-select">Architecture</Label>
+                    <Label for="arch-select" data-i18n="label.arch">Architecture</Label>
                     <select id="arch-select" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                      <option value="">Select architecture</option>
+                      <option value="" data-i18n="label.archPlaceholder">Select architecture</option>
                     </select>
                   </div>
                 </div>
@@ -94,15 +106,15 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
 
             <Card>
               <CardHeader>
-                <CardTitle>Connection Type</CardTitle>
-                <CardDescription>Choose how the client connects to peers</CardDescription>
+                <CardTitle data-i18n="card.connType.title">Connection Type</CardTitle>
+                <CardDescription data-i18n="card.connType.description">Choose how the client connects to peers</CardDescription>
               </CardHeader>
               <CardContent>
                 <div class="grid grid-cols-3 gap-3">
                   {CONN_TYPE_OPTIONS.map((opt) => (
                     <label class="flex flex-col items-center gap-2 rounded-lg border border-input p-4 cursor-pointer hover:bg-accent transition-colors conn-type-label" data-conn-value={opt.value}>
                       <input type="radio" name="conn_type" value={opt.value} class="sr-only" />
-                      <span class="text-sm font-medium">{opt.label}</span>
+                      <span class="text-sm font-medium" data-i18n={"connType." + opt.value}>{opt.label}</span>
                     </label>
                   ))}
                 </div>
@@ -113,22 +125,22 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
           <TabsContent value="branding" class="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Application Identity</CardTitle>
-                <CardDescription>Customize the app name and credentials</CardDescription>
+                <CardTitle data-i18n="card.appIdentity.title">Application Identity</CardTitle>
+                <CardDescription data-i18n="card.appIdentity.description">Customize the app name and credentials</CardDescription>
               </CardHeader>
               <CardContent class="space-y-4">
                 <div class="space-y-2">
-                  <Label for="app_name">App Name</Label>
-                  <Input id="app_name" name="app_name" type="text" placeholder="e.g. MyCompany Remote" />
+                  <Label for="app_name" data-i18n="label.appName">App Name</Label>
+                  <Input id="app_name" name="app_name" type="text" placeholder="e.g. MyCompany Remote" data-i18n-placeholder="label.appNamePlaceholder" />
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div class="space-y-2">
-                    <Label for="password">Password</Label>
-                    <Input id="password" name="password" type="text" placeholder="Optional" />
+                    <Label for="password" data-i18n="label.password">Password</Label>
+                    <Input id="password" name="password" type="text" placeholder="Optional" data-i18n-placeholder="label.passwordPlaceholder" />
                   </div>
                   <div class="space-y-2">
-                    <Label for="salt">Salt</Label>
-                    <Input id="salt" name="salt" type="text" placeholder="Optional" />
+                    <Label for="salt" data-i18n="label.salt">Salt</Label>
+                    <Input id="salt" name="salt" type="text" placeholder="Optional" data-i18n-placeholder="label.saltPlaceholder" />
                   </div>
                 </div>
               </CardContent>
@@ -136,13 +148,13 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
 
             <Card>
               <CardHeader>
-                <CardTitle>Logo Upload</CardTitle>
-                <CardDescription>Upload custom app icons/logos (PNG, JPEG, SVG, ICO)</CardDescription>
+                <CardTitle data-i18n="card.logoUpload.title">Logo Upload</CardTitle>
+                <CardDescription data-i18n="card.logoUpload.description">Upload custom app icons/logos (PNG, JPEG, SVG, ICO)</CardDescription>
               </CardHeader>
               <CardContent>
                 <div class="flex items-center gap-4">
                   <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/x-icon" class="text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20" />
-                  <Button type="button" variant="secondary" size="sm" id="logo-upload-btn">Upload</Button>
+                  <Button type="button" variant="secondary" size="sm" id="logo-upload-btn" data-i18n="btn.upload">Upload</Button>
                   <span id="logo-status" class="text-sm text-success-foreground hidden"></span>
                 </div>
               </CardContent>
@@ -152,14 +164,14 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
           <TabsContent value="features" class="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Feature Toggles</CardTitle>
-                <CardDescription>Enable or disable specific client features</CardDescription>
+                <CardTitle data-i18n="card.featureToggles.title">Feature Toggles</CardTitle>
+                <CardDescription data-i18n="card.featureToggles.description">Enable or disable specific client features</CardDescription>
               </CardHeader>
               <CardContent>
                 <div class="space-y-3">
                   {FEATURE_TOGGLES.map((toggle) => (
                     <div class="flex items-center justify-between rounded-lg border border-border p-3">
-                      <Label for={`toggle-${toggle.key}`} class="cursor-pointer">{toggle.label}</Label>
+                      <Label for={`toggle-${toggle.key}`} class="cursor-pointer" data-i18n={"feature." + toggle.key}>{toggle.label}</Label>
                       <Switch id={`toggle-${toggle.key}`} name={toggle.key} />
                     </div>
                   ))}
@@ -171,9 +183,13 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
           <TabsContent value="advanced" class="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Advanced Configuration</CardTitle>
+                <CardTitle data-i18n="card.advancedConfig.title">Advanced Configuration</CardTitle>
                 <CardDescription>
-                  Fine-tune client behavior with detailed configuration options. For each modified option, choose whether it should be a <span class="font-medium text-primary">Default</span> (user can change in client) or an <span class="font-medium text-error">Override</span> (locked, user cannot change).
+                  <span data-i18n="card.advancedConfig.description">Fine-tune client behavior with detailed configuration options. For each modified option, choose whether it should be a</span>
+                  <span class="font-medium text-primary" data-i18n="card.advancedConfig.defaultHint">Default</span>
+                  <span data-i18n="card.advancedConfig.defaultHintDesc">(user can change in client)</span>
+                  <span data-i18n="card.advancedConfig.overrideHint">Override</span>
+                  <span data-i18n="card.advancedConfig.overrideHintDesc">(locked, user cannot change).</span>
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -181,12 +197,12 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                   <span class="flex items-center gap-1">
                     <span class="size-2 rounded-full bg-primary"></span>
                     <span class="text-primary font-medium" id="default-count">0</span>
-                    <span class="text-muted-foreground">Default</span>
+                    <span class="text-muted-foreground" data-i18n="label.defaultCount">Default</span>
                   </span>
                   <span class="flex items-center gap-1">
                     <span class="size-2 rounded-full bg-error"></span>
                     <span class="text-error font-medium" id="override-count">0</span>
-                    <span class="text-muted-foreground">Override</span>
+                    <span class="text-muted-foreground" data-i18n="label.overrideCount">Override</span>
                   </span>
                 </div>
 
@@ -194,7 +210,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                   {configCategories.map((category) => (
                     <AccordionItem value={category.key}>
                       <AccordionTrigger class="text-sm font-medium">
-                        <span>{category.label}</span>
+                        <span data-i18n={"category." + category.key}>{category.label}</span>
                         <Badge variant="secondary" class="ml-2 text-xs">{getOptionsByCategory(category.key).length}</Badge>
                       </AccordionTrigger>
                       <AccordionContent>
@@ -203,21 +219,21 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                             <div class="flex items-center justify-between gap-4 rounded-md border border-border p-3" data-option-row={option.key}>
                               <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-1.5">
-                                  <span class="text-sm font-medium">{humanizeConfigOptionKey(option.key)}</span>
+                                  <span class="text-sm font-medium" data-option-label={option.key}>{humanizeConfigOptionKey(option.key)}</span>
                                   <span class="mode-dot hidden size-2 rounded-full" data-mode-dot={option.key}></span>
                                 </div>
                                 <p class="text-xs text-muted-foreground mt-0.5">
-                                  Default: <span data-default-for={option.key}>{option.type === 'switch' ? (option.defaultValue === 'Y' ? 'On' : 'Off') : option.defaultValue}</span>
+                                  <span data-i18n="label.default">Default</span>: <span data-default-for={option.key}>{option.type === 'switch' ? (option.defaultValue === 'Y' ? 'On' : 'Off') : option.defaultValue}</span>
                                 </p>
                                 {option.description && (
-                                  <p class="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                                  <p class="text-xs text-muted-foreground mt-0.5" data-option-description={option.key}>{option.description}</p>
                                 )}
                               </div>
                               <div class="flex items-center gap-2 flex-shrink-0">
                                 {option.type === 'switch' && (
                                   <select data-config-key={option.key} data-config-type="switch" class="rounded-md border border-input bg-background px-2 py-1 text-xs">
-                                    <option value="N" selected={option.defaultValue === 'N'}>Off</option>
-                                    <option value="Y" selected={option.defaultValue === 'Y'}>On</option>
+                                    <option value="N" selected={option.defaultValue === 'N'} data-i18n="values.off">Off</option>
+                                    <option value="Y" selected={option.defaultValue === 'Y'} data-i18n="values.on">On</option>
                                   </select>
                                 )}
                                 {option.type === 'select' && (
@@ -239,7 +255,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                                   <button type="button" class="mode-btn px-2 py-1 text-xs font-medium transition-colors" data-mode="override" data-mode-for={option.key}>O</button>
                                 </div>
 
-                                <button type="button" class="reset-btn hidden text-xs text-primary hover:underline" data-reset-for={option.key}>Reset</button>
+                                <button type="button" class="reset-btn hidden text-xs text-primary hover:underline" data-reset-for={option.key} data-i18n="btn.reset">Reset</button>
                               </div>
                             </div>
                           ))}
@@ -255,12 +271,12 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
 
         <div class="flex items-center justify-between pt-4">
           <div class="text-sm text-muted-foreground">
-            <span id="modified-count">0</span> options modified
+            <span id="modified-count">0</span> <span data-i18n="label.optionsModified">options modified</span>
           </div>
           <div class="flex items-center gap-3">
-            <Button type="button" variant="ghost" id="reset-btn">Reset All</Button>
+            <Button type="button" variant="ghost" id="reset-btn" data-i18n="btn.resetAll">Reset All</Button>
             <Button type="submit" size="lg" id="submit-btn">
-              <span id="submit-text">Build Custom Client</span>
+              <span id="submit-text" data-i18n="btn.build">Build Custom Client</span>
             </Button>
           </div>
         </div>
@@ -268,15 +284,79 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
     </main>
   </div>
 
-  <script is:inline define:vars={{ archOptionsJson, configOptionsMapJson }}>
+  <script is:inline define:vars={{ archOptionsJson, configOptionsMapJson, uiTranslationsJson, optionTranslationsJson, localesJson }}>
     window.__archOptions = JSON.parse(archOptionsJson);
     window.__configOptionsMap = JSON.parse(configOptionsMapJson);
     window.__optionModes = {};
+    window.__uiTranslations = JSON.parse(uiTranslationsJson);
+    window.__optionTranslations = JSON.parse(optionTranslationsJson);
+    window.__locales = JSON.parse(localesJson);
   </script>
 
   <script>
     // @ts-nocheck
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+    const uiT = window.__uiTranslations;
+    const optT = window.__optionTranslations;
+    const locales = window.__locales;
+
+    function getStoredLocale() {
+      const stored = localStorage.getItem('locale');
+      if (stored && ['en-US','zh-CN','es-ES','fr-FR','pt-BR','ru-RU'].includes(stored)) return stored;
+      return 'en-US';
+    }
+
+    function applyTranslations(locale) {
+      const ui = uiT[locale] || uiT['en-US'];
+      const opts = optT[locale] || optT['en-US'];
+
+      document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        const key = el.getAttribute('data-i18n');
+        if (key && ui[key]) el.textContent = ui[key];
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (key && ui[key]) el.setAttribute('placeholder', ui[key]);
+      });
+
+      document.querySelectorAll('[data-option-label]').forEach(function(el) {
+        const key = el.getAttribute('data-option-label');
+        if (key && opts[key]) el.textContent = opts[key].label;
+      });
+
+      document.querySelectorAll('[data-option-description]').forEach(function(el) {
+        const key = el.getAttribute('data-option-description');
+        if (key && opts[key] && opts[key].description) el.textContent = opts[key].description;
+      });
+
+      document.querySelectorAll('select[data-config-type="select"]').forEach(function(select) {
+        const optionKey = select.getAttribute('data-config-key');
+        if (optionKey && opts[optionKey] && opts[optionKey].values) {
+          const valueMap = opts[optionKey].values;
+          select.querySelectorAll('option').forEach(function(opt) {
+            const val = opt.getAttribute('value');
+            if (val && valueMap[val]) opt.textContent = valueMap[val];
+          });
+        }
+      });
+
+      document.documentElement.setAttribute('lang', locale);
+    }
+
+    const currentLocale = getStoredLocale();
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) langSelect.value = currentLocale;
+    applyTranslations(currentLocale);
+
+    if (langSelect) {
+      langSelect.addEventListener('change', function() {
+        const locale = langSelect.value;
+        localStorage.setItem('locale', locale);
+        applyTranslations(locale);
+      });
+    }
 
     const osSelect = document.getElementById('os-select');
     const archWrapper = document.getElementById('arch-wrapper');
@@ -307,12 +387,13 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
     function updateArchOptions() {
       const os = osSelect.value;
       const archOpts = window.__archOptions[os] || [];
+      const ui = uiT[getStoredLocale()] || uiT['en-US'];
       if (archOpts.length === 0) {
         archWrapper.style.display = 'none';
         archSelect.innerHTML = '';
       } else {
         archWrapper.style.display = '';
-        archSelect.innerHTML = '<option value="">Select architecture</option>' +
+        archSelect.innerHTML = '<option value="">' + (ui['label.archPlaceholder'] || 'Select architecture') + '</option>' +
           archOpts.map(function(o) { return '<option value="' + o.value + '">' + o.label + '</option>'; }).join('');
       }
     }
@@ -554,7 +635,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       }
 
       submitBtn.disabled = true;
-      submitText.textContent = 'Building...';
+      submitText.textContent = uiT[getStoredLocale()]?.['btn.building'] || 'Building...';
 
       try {
         const res = await fetch(API_URL + '/api/trigger', {
@@ -575,7 +656,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       } catch (e) {
         showError(e instanceof Error ? e.message : 'Build trigger failed');
         submitBtn.disabled = false;
-        submitText.textContent = 'Build Custom Client';
+        submitText.textContent = uiT[getStoredLocale()]?.['btn.build'] || 'Build Custom Client';
       }
     });
   </script>

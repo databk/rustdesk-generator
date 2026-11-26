@@ -4,7 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/starwind/button';
 import { Badge } from '@/components/starwind/badge';
 import { Spinner } from '@/components/starwind/spinner';
+import { translations as uiTranslations, LOCALES } from '@/lib/i18n/translations';
 
+const uiTranslationsJson = JSON.stringify(uiTranslations);
+const localesJson = JSON.stringify(LOCALES);
 ---
 
 <Layout title="Build Status - RustDesk Generator">
@@ -20,46 +23,53 @@ import { Spinner } from '@/components/starwind/spinner';
               </svg>
             </div>
             <div>
-              <h1 class="text-lg font-semibold leading-tight">RustDesk Generator</h1>
-              <p class="text-xs text-muted-foreground">Build Status</p>
+              <h1 class="text-lg font-semibold leading-tight" data-i18n="app.title">RustDesk Generator</h1>
+              <p class="text-xs text-muted-foreground" data-i18n="status.buildStatus">Build Status</p>
             </div>
           </a>
         </div>
-        <Button variant="ghost" size="sm" id="theme-toggle">
-          <svg class="size-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-          </svg>
-          <svg class="size-4 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        </Button>
+        <div class="flex items-center gap-2">
+          <select id="lang-select" class="rounded-md border border-input bg-background px-2 py-1 text-xs">
+            {LOCALES.map((l) => (
+              <option value={l.value}>{l.label}</option>
+            ))}
+          </select>
+          <Button variant="ghost" size="sm" id="theme-toggle">
+            <svg class="size-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+            <svg class="size-4 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          </Button>
+        </div>
       </div>
     </header>
 
     <main class="max-w-3xl mx-auto px-4 py-8">
       <div id="loading-state" class="flex flex-col items-center justify-center py-20">
         <Spinner class="size-8" />
-        <p class="mt-4 text-muted-foreground">Loading build status...</p>
+        <p class="mt-4 text-muted-foreground" data-i18n="status.loading">Loading build status...</p>
       </div>
 
       <div id="error-state" class="hidden flex flex-col items-center justify-center py-20">
         <div class="text-center">
           <p id="error-message" class="text-error-foreground mb-4"></p>
-          <Button as="a" href="/">Back to Home</Button>
+          <Button as="a" href="/" data-i18n="status.backToHome">Back to Home</Button>
         </div>
       </div>
 
       <div id="build-content" class="hidden space-y-6">
         <div class="flex items-center gap-2 text-sm">
-          <a href="/" class="text-primary hover:underline">← Back to Home</a>
+          <a href="/" class="text-primary hover:underline" data-i18n="status.backToHome">← Back to Home</a>
         </div>
 
         <Card>
           <CardHeader>
             <div class="flex items-center justify-between">
               <div>
-                <CardTitle id="build-title">Build Status</CardTitle>
+                <CardTitle id="build-title" data-i18n="status.buildStatus">Build Status</CardTitle>
                 <CardDescription id="build-meta"></CardDescription>
               </div>
               <Badge id="build-status-badge" variant="secondary"></Badge>
@@ -75,8 +85,8 @@ import { Spinner } from '@/components/starwind/spinner';
         <div id="download-section" class="hidden">
           <Card>
             <CardHeader>
-              <CardTitle>Download</CardTitle>
-              <CardDescription>Your build is ready. Download the files below.</CardDescription>
+              <CardTitle data-i18n="status.download">Download</CardTitle>
+              <CardDescription data-i18n="status.downloadDesc">Your build is ready. Download the files below.</CardDescription>
             </CardHeader>
             <CardContent>
               <div id="download-list" class="space-y-3"></div>
@@ -87,14 +97,14 @@ import { Spinner } from '@/components/starwind/spinner';
         <div id="failed-section" class="hidden">
           <Card>
             <CardHeader>
-              <CardTitle>Build Failed</CardTitle>
-              <CardDescription>The build process encountered an error.</CardDescription>
+              <CardTitle data-i18n="status.buildFailed">Build Failed</CardTitle>
+              <CardDescription data-i18n="status.buildFailedDesc">The build process encountered an error.</CardDescription>
             </CardHeader>
             <CardContent>
               <p class="text-sm text-muted-foreground mb-4">
                 Please try again or check the build configuration.
               </p>
-              <Button as="a" href="/">Start New Build</Button>
+              <Button as="a" href="/" data-i18n="status.startNewBuild">Start New Build</Button>
             </CardContent>
           </Card>
         </div>
@@ -106,7 +116,7 @@ import { Spinner } from '@/components/starwind/spinner';
                 <Spinner class="size-5" />
                 <p class="text-sm text-muted-foreground" id="active-message"></p>
               </div>
-              <p class="mt-2 text-xs text-muted-foreground">
+              <p class="mt-2 text-xs text-muted-foreground" data-i18n="status.autoRefresh">
                 This page will auto-refresh every 5 seconds.
               </p>
             </CardContent>
@@ -116,11 +126,46 @@ import { Spinner } from '@/components/starwind/spinner';
     </main>
   </div>
 
+  <script is:inline define:vars={{ uiTranslationsJson, localesJson }}>
+    window.__uiTranslations = JSON.parse(uiTranslationsJson);
+    window.__locales = JSON.parse(localesJson);
+  </script>
+
   <script>
     // @ts-nocheck
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
     const params = new URLSearchParams(window.location.search);
     const buildId = params.get('id') || '';
+
+    const uiT = window.__uiTranslations;
+
+    function getStoredLocale() {
+      const stored = localStorage.getItem('locale');
+      if (stored && ['en-US','zh-CN','es-ES','fr-FR','pt-BR','ru-RU'].includes(stored)) return stored;
+      return 'en-US';
+    }
+
+    function applyTranslations(locale) {
+      const ui = uiT[locale] || uiT['en-US'];
+      document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        const key = el.getAttribute('data-i18n');
+        if (key && ui[key]) el.textContent = ui[key];
+      });
+      document.documentElement.setAttribute('lang', locale);
+    }
+
+    const currentLocale = getStoredLocale();
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) langSelect.value = currentLocale;
+    applyTranslations(currentLocale);
+
+    if (langSelect) {
+      langSelect.addEventListener('change', function() {
+        const locale = langSelect.value;
+        localStorage.setItem('locale', locale);
+        applyTranslations(locale);
+      });
+    }
 
     const loadingState = document.getElementById('loading-state');
     const errorState = document.getElementById('error-state');
@@ -159,7 +204,7 @@ import { Spinner } from '@/components/starwind/spinner';
     if (!buildId) {
       loadingState.classList.add('hidden');
       errorState.classList.remove('hidden');
-      errorMessage.textContent = 'Missing build ID';
+      errorMessage.textContent = uiT[currentLocale]?.['status.missingId'] || 'Missing build ID';
     } else {
       pollBuildStatus();
     }
@@ -202,17 +247,20 @@ import { Spinner } from '@/components/starwind/spinner';
 
       if (build.status === 'completed' && build.files && build.files.length > 0) {
         downloadSection.classList.remove('hidden');
+        const ui = uiT[getStoredLocale()] || uiT['en-US'];
+        const downloadLabel = ui['status.download'] || 'Download';
         downloadList.innerHTML = build.files.map(function(filename) {
           return '<a href="' + API_URL + '/api/download/' + build.uuid + '/' + filename + '" class="flex items-center justify-between rounded-md border border-border px-4 py-3 hover:bg-accent transition-colors">' +
             '<span class="text-sm font-medium">' + filename + '</span>' +
-            '<span class="text-sm text-primary">Download ↓</span>' +
+            '<span class="text-sm text-primary">' + downloadLabel + ' ↓</span>' +
             '</a>';
         }).join('');
       } else if (build.status === 'failed') {
         failedSection.classList.remove('hidden');
       } else if (build.status === 'pending' || build.status === 'building') {
         activeSection.classList.remove('hidden');
-        activeMessage.textContent = build.status === 'pending' ? 'Waiting for build to start...' : 'Build in progress...';
+        const ui = uiT[getStoredLocale()] || uiT['en-US'];
+        activeMessage.textContent = build.status === 'pending' ? (ui['status.waiting'] || 'Waiting for build to start...') : (ui['status.inProgress'] || 'Build in progress...');
       }
     }
   </script>

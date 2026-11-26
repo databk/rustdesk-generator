@@ -1,5 +1,6 @@
 ---
 import '@/styles/starwind.css';
+import { LOCALES } from '@/lib/i18n/translations';
 
 interface Props {
   title?: string;
@@ -7,6 +8,7 @@ interface Props {
 }
 
 const { title = 'RustDesk Custom Client Builder', description = 'Configure and build your custom RustDesk client' } = Astro.props;
+const localesJson = JSON.stringify(LOCALES);
 ---
 
 <!doctype html>
@@ -17,7 +19,8 @@ const { title = 'RustDesk Custom Client Builder', description = 'Configure and b
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
-    <script is:inline>
+    <script is:inline define:vars={{ localesJson }}>
+      window.__locales = JSON.parse(localesJson);
       const theme = (() => {
         if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
           return localStorage.getItem('theme');
