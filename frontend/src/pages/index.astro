@@ -5,10 +5,8 @@ import { Button } from '@/components/starwind/button';
 import { Input } from '@/components/starwind/input';
 import { Label } from '@/components/starwind/label';
 import { Switch } from '@/components/starwind/switch';
-import { Textarea } from '@/components/starwind/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/starwind/tabs';
 import { Badge } from '@/components/starwind/badge';
-
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/starwind/accordion';
 import { OS_OPTIONS, ARCH_OPTIONS, CONN_TYPE_OPTIONS, FEATURE_TOGGLES } from '@/lib/constants';
 import { configCategories, getOptionsByCategory, humanizeConfigOptionKey, configOptionsMap } from '@/lib/config';
@@ -18,7 +16,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
 ---
 
 <Layout title="RustDesk Custom Client Builder">
- ,  <div class="min-h-screen">
+  <div class="min-h-screen">
     <header class="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
       <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -168,33 +166,13 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                 </div>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Override Settings (JSON)</CardTitle>
-                <CardDescription>Provide custom settings that override defaults</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea id="override_settings" name="override_settings" placeholder='e.g. {"theme": "dark"}' rows={3} class="font-mono" />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Default Settings (JSON)</CardTitle>
-                <CardDescription>Provide default settings for the client</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea id="default_settings" name="default_settings" placeholder='e.g. {"server": "my.server.com"}' rows={3} class="font-mono" />
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="advanced" class="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Advanced Configuration</CardTitle>
-                <CardDescription>Fine-tune client behavior with detailed configuration options</CardDescription>
+                <CardDescription>Fine-tune client behavior with detailed configuration options. Modified values override defaults; unmodified options use their default value.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Accordion type="single" collapsible class="w-full">
@@ -207,14 +185,20 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                       <AccordionContent>
                         <div class="space-y-3 pt-2">
                           {getOptionsByCategory(category.key).map((option) => (
-                            <div class="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+                            <div class="flex items-center justify-between gap-4 rounded-md border border-border p-3" data-option-row={option.key}>
                               <div class="flex-1 min-w-0">
-                                <span class="text-sm font-medium">{humanizeConfigOptionKey(option.key)}</span>
+                                <div class="flex items-center gap-1.5">
+                                  <span class="text-sm font-medium">{humanizeConfigOptionKey(option.key)}</span>
+                                  <span class="modified-dot hidden size-1.5 rounded-full bg-primary"></span>
+                                </div>
+                                <p class="text-xs text-muted-foreground mt-0.5">
+                                  Default: <span class="default-value-label" data-default-for={option.key}>{option.type === 'switch' ? (option.defaultValue === 'Y' ? 'On' : 'Off') : option.defaultValue}</span>
+                                </p>
                                 {option.description && (
                                   <p class="text-xs text-muted-foreground mt-0.5">{option.description}</p>
                                 )}
                               </div>
-                              <div class="flex-shrink-0">
+                              <div class="flex items-center gap-2 flex-shrink-0">
                                 {option.type === 'switch' && (
                                   <select data-config-key={option.key} data-config-type="switch" class="rounded-md border border-input bg-background px-2 py-1 text-xs">
                                     <option value="N" selected={option.defaultValue === 'N'}>Off</option>
@@ -234,6 +218,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                                 {option.type === 'text' && (
                                   <input type="text" data-config-key={option.key} data-config-type="text" value={option.defaultValue} placeholder="Enter value" class="w-40 rounded-md border border-input bg-background px-2 py-1 text-xs" />
                                 )}
+                                <button type="button" class="reset-btn hidden text-xs text-primary hover:underline" data-reset-for={option.key}>Reset</button>
                               </div>
                             </div>
                           ))}
@@ -252,7 +237,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
             <span id="modified-count">0</span> options modified
           </div>
           <div class="flex items-center gap-3">
-            <Button type="button" variant="ghost" id="reset-btn">Reset</Button>
+            <Button type="button" variant="ghost" id="reset-btn">Reset All</Button>
             <Button type="submit" size="lg" id="submit-btn">
               <span id="submit-text">Build Custom Client</span>
             </Button>
@@ -308,6 +293,34 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       }
     }
 
+    function updateOptionVisualState(key) {
+      const opt = window.__configOptionsMap[key];
+      if (!opt) return;
+      const el = document.querySelector('[data-config-key="' + key + '"]');
+      if (!el) return;
+      const val = el.value;
+      const isDefault = val === opt.defaultValue;
+
+      const dot = document.querySelector('.modified-dot[data-default-for="' + key + '"]') ||
+                  document.querySelector('[data-option-row="' + key + '"] .modified-dot');
+      const resetBtnEl = document.querySelector('.reset-btn[data-reset-for="' + key + '"]');
+
+      if (dot) {
+        if (isDefault) dot.classList.add('hidden');
+        else dot.classList.remove('hidden');
+      }
+      if (resetBtnEl) {
+        if (isDefault) resetBtnEl.classList.add('hidden');
+        else resetBtnEl.classList.remove('hidden');
+      }
+    }
+
+    function updateAllOptionVisualStates() {
+      document.querySelectorAll('[data-config-key]').forEach(function(el) {
+        updateOptionVisualState(el.dataset.configKey);
+      });
+    }
+
     function updateModifiedCount() {
       const advancedEls = document.querySelectorAll('[data-config-key]');
       let count = 0;
@@ -322,12 +335,33 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       modifiedCount.textContent = String(count);
     }
 
+    function resetOption(key) {
+      const opt = window.__configOptionsMap[key];
+      if (!opt) return;
+      const el = document.querySelector('[data-config-key="' + key + '"]');
+      if (!el) return;
+      el.value = opt.defaultValue;
+      updateOptionVisualState(key);
+      updateModifiedCount();
+    }
+
     osSelect.addEventListener('change', updateArchOptions);
     updateArchOptions();
 
     document.querySelectorAll('[data-config-key]').forEach(function(el) {
-      el.addEventListener('change', updateModifiedCount);
+      el.addEventListener('change', function() {
+        updateOptionVisualState(el.dataset.configKey);
+        updateModifiedCount();
+      });
     });
+
+    document.querySelectorAll('.reset-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        resetOption(btn.dataset.resetFor);
+      });
+    });
+
+    updateAllOptionVisualStates();
 
     themeToggle.addEventListener('click', function() {
       const isDark = document.documentElement.classList.contains('dark');
@@ -374,6 +408,11 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
     resetBtn.addEventListener('click', function() {
       buildForm.reset();
       updateArchOptions();
+      document.querySelectorAll('[data-config-key]').forEach(function(el) {
+        const opt = window.__configOptionsMap[el.dataset.configKey];
+        if (opt) el.value = opt.defaultValue;
+      });
+      updateAllOptionVisualStates();
       updateModifiedCount();
       document.querySelectorAll('.conn-type-label').forEach(function(e) {
         e.classList.remove('border-primary', 'bg-primary/10');
@@ -402,11 +441,6 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
         const val = formData.get(key);
         if (val === 'on') custom[key] = true;
       });
-
-      const overrideSettings = formData.get('override_settings');
-      if (overrideSettings) custom.override_settings = overrideSettings;
-      const defaultSettings = formData.get('default_settings');
-      if (defaultSettings) custom.default_settings = defaultSettings;
 
       document.querySelectorAll('[data-config-key]').forEach(function(el) {
         const key = el.dataset.configKey;
