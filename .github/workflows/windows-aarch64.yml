@@ -145,7 +145,7 @@ jobs:
         run: |
           if [ -f ./custom-config/public-key.txt ]; then
             PUBKEY=$(cat ./custom-config/public-key.txt)
-            sed -i "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
+            perl -i -pe "s|5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=|${PUBKEY}|g" src/common.rs
             echo "Injected public key into src/common.rs"
           fi
           if bash generator-scripts/.github/scripts/restore-template.sh \
