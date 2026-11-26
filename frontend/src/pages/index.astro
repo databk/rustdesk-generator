@@ -172,9 +172,24 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
             <Card>
               <CardHeader>
                 <CardTitle>Advanced Configuration</CardTitle>
-                <CardDescription>Fine-tune client behavior with detailed configuration options. Modified values override defaults; unmodified options use their default value.</CardDescription>
+                <CardDescription>
+                  Fine-tune client behavior with detailed configuration options. For each modified option, choose whether it should be a <span class="font-medium text-primary">Default</span> (user can change in client) or an <span class="font-medium text-error">Override</span> (locked, user cannot change).
+                </CardDescription>
               </CardHeader>
               <CardContent>
+                <div class="flex items-center gap-4 mb-4 text-xs">
+                  <span class="flex items-center gap-1">
+                    <span class="size-2 rounded-full bg-primary"></span>
+                    <span class="text-primary font-medium" id="default-count">0</span>
+                    <span class="text-muted-foreground">Default</span>
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <span class="size-2 rounded-full bg-error"></span>
+                    <span class="text-error font-medium" id="override-count">0</span>
+                    <span class="text-muted-foreground">Override</span>
+                  </span>
+                </div>
+
                 <Accordion type="single" collapsible class="w-full">
                   {configCategories.map((category) => (
                     <AccordionItem value={category.key}>
@@ -189,10 +204,10 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                               <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-1.5">
                                   <span class="text-sm font-medium">{humanizeConfigOptionKey(option.key)}</span>
-                                  <span class="modified-dot hidden size-1.5 rounded-full bg-primary"></span>
+                                  <span class="mode-dot hidden size-2 rounded-full" data-mode-dot={option.key}></span>
                                 </div>
                                 <p class="text-xs text-muted-foreground mt-0.5">
-                                  Default: <span class="default-value-label" data-default-for={option.key}>{option.type === 'switch' ? (option.defaultValue === 'Y' ? 'On' : 'Off') : option.defaultValue}</span>
+                                  Default: <span data-default-for={option.key}>{option.type === 'switch' ? (option.defaultValue === 'Y' ? 'On' : 'Off') : option.defaultValue}</span>
                                 </p>
                                 {option.description && (
                                   <p class="text-xs text-muted-foreground mt-0.5">{option.description}</p>
@@ -218,6 +233,12 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
                                 {option.type === 'text' && (
                                   <input type="text" data-config-key={option.key} data-config-type="text" value={option.defaultValue} placeholder="Enter value" class="w-40 rounded-md border border-input bg-background px-2 py-1 text-xs" />
                                 )}
+
+                                <div class="mode-toggle hidden items-center rounded-md border border-border overflow-hidden" data-mode-toggle={option.key}>
+                                  <button type="button" class="mode-btn px-2 py-1 text-xs font-medium transition-colors" data-mode="default" data-mode-for={option.key}>D</button>
+                                  <button type="button" class="mode-btn px-2 py-1 text-xs font-medium transition-colors" data-mode="override" data-mode-for={option.key}>O</button>
+                                </div>
+
                                 <button type="button" class="reset-btn hidden text-xs text-primary hover:underline" data-reset-for={option.key}>Reset</button>
                               </div>
                             </div>
@@ -250,6 +271,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
   <script is:inline define:vars={{ archOptionsJson, configOptionsMapJson }}>
     window.__archOptions = JSON.parse(archOptionsJson);
     window.__configOptionsMap = JSON.parse(configOptionsMapJson);
+    window.__optionModes = {};
   </script>
 
   <script>
@@ -269,6 +291,8 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
     const logoStatus = document.getElementById('logo-status');
     const resetBtn = document.getElementById('reset-btn');
     const modifiedCount = document.getElementById('modified-count');
+    const defaultCount = document.getElementById('default-count');
+    const overrideCount = document.getElementById('override-count');
     const themeToggle = document.getElementById('theme-toggle');
 
     function showError(msg) {
@@ -293,25 +317,72 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       }
     }
 
+    function isOptionModified(key) {
+      const opt = window.__configOptionsMap[key];
+      if (!opt) return false;
+      const el = document.querySelector('[data-config-key="' + key + '"]');
+      if (!el) return false;
+      return el.value !== opt.defaultValue;
+    }
+
+    function getOptionMode(key) {
+      return window.__optionModes[key] || 'default';
+    }
+
+    function setOptionMode(key, mode) {
+      window.__optionModes[key] = mode;
+      updateOptionVisualState(key);
+      updateCounts();
+    }
+
     function updateOptionVisualState(key) {
       const opt = window.__configOptionsMap[key];
       if (!opt) return;
       const el = document.querySelector('[data-config-key="' + key + '"]');
       if (!el) return;
-      const val = el.value;
-      const isDefault = val === opt.defaultValue;
+      const modified = el.value !== opt.defaultValue;
+      const mode = getOptionMode(key);
 
-      const dot = document.querySelector('.modified-dot[data-default-for="' + key + '"]') ||
-                  document.querySelector('[data-option-row="' + key + '"] .modified-dot');
+      const dot = document.querySelector('[data-mode-dot="' + key + '"]');
+      const modeToggle = document.querySelector('[data-mode-toggle="' + key + '"]');
       const resetBtnEl = document.querySelector('.reset-btn[data-reset-for="' + key + '"]');
 
-      if (dot) {
-        if (isDefault) dot.classList.add('hidden');
-        else dot.classList.remove('hidden');
-      }
-      if (resetBtnEl) {
-        if (isDefault) resetBtnEl.classList.add('hidden');
-        else resetBtnEl.classList.remove('hidden');
+      if (modified) {
+        if (dot) {
+          dot.classList.remove('hidden');
+          if (mode === 'default') {
+            dot.classList.remove('bg-error');
+            dot.classList.add('bg-primary');
+          } else {
+            dot.classList.remove('bg-primary');
+            dot.classList.add('bg-error');
+          }
+        }
+        if (modeToggle) {
+          modeToggle.classList.remove('hidden');
+          modeToggle.classList.add('flex');
+          modeToggle.querySelectorAll('.mode-btn').forEach(function(btn) {
+            if (btn.dataset.mode === mode) {
+              if (mode === 'default') {
+                btn.classList.add('bg-primary', 'text-primary-foreground');
+                btn.classList.remove('bg-error', 'text-error-foreground');
+              } else {
+                btn.classList.add('bg-error', 'text-error-foreground');
+                btn.classList.remove('bg-primary', 'text-primary-foreground');
+              }
+            } else {
+              btn.classList.remove('bg-primary', 'text-primary-foreground', 'bg-error', 'text-error-foreground');
+            }
+          });
+        }
+        if (resetBtnEl) resetBtnEl.classList.remove('hidden');
+      } else {
+        if (dot) dot.classList.add('hidden');
+        if (modeToggle) {
+          modeToggle.classList.add('hidden');
+          modeToggle.classList.remove('flex');
+        }
+        if (resetBtnEl) resetBtnEl.classList.add('hidden');
       }
     }
 
@@ -321,18 +392,21 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       });
     }
 
-    function updateModifiedCount() {
-      const advancedEls = document.querySelectorAll('[data-config-key]');
-      let count = 0;
-      advancedEls.forEach(function(el) {
+    function updateCounts() {
+      let modified = 0;
+      let defaults = 0;
+      let overrides = 0;
+      document.querySelectorAll('[data-config-key]').forEach(function(el) {
         const key = el.dataset.configKey;
-        const opt = window.__configOptionsMap[key];
-        if (opt) {
-          const val = el.value;
-          if (val !== opt.defaultValue) count++;
+        if (isOptionModified(key)) {
+          modified++;
+          if (getOptionMode(key) === 'default') defaults++;
+          else overrides++;
         }
       });
-      modifiedCount.textContent = String(count);
+      modifiedCount.textContent = String(modified);
+      defaultCount.textContent = String(defaults);
+      overrideCount.textContent = String(overrides);
     }
 
     function resetOption(key) {
@@ -341,8 +415,9 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
       const el = document.querySelector('[data-config-key="' + key + '"]');
       if (!el) return;
       el.value = opt.defaultValue;
+      delete window.__optionModes[key];
       updateOptionVisualState(key);
-      updateModifiedCount();
+      updateCounts();
     }
 
     osSelect.addEventListener('change', updateArchOptions);
@@ -350,8 +425,18 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
 
     document.querySelectorAll('[data-config-key]').forEach(function(el) {
       el.addEventListener('change', function() {
-        updateOptionVisualState(el.dataset.configKey);
-        updateModifiedCount();
+        const key = el.dataset.configKey;
+        if (!window.__optionModes[key] && isOptionModified(key)) {
+          window.__optionModes[key] = 'default';
+        }
+        updateOptionVisualState(key);
+        updateCounts();
+      });
+    });
+
+    document.querySelectorAll('.mode-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        setOptionMode(btn.dataset.modeFor, btn.dataset.mode);
       });
     });
 
@@ -362,6 +447,7 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
     });
 
     updateAllOptionVisualStates();
+    updateCounts();
 
     themeToggle.addEventListener('click', function() {
       const isDark = document.documentElement.classList.contains('dark');
@@ -412,8 +498,9 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
         const opt = window.__configOptionsMap[el.dataset.configKey];
         if (opt) el.value = opt.defaultValue;
       });
+      window.__optionModes = {};
       updateAllOptionVisualStates();
-      updateModifiedCount();
+      updateCounts();
       document.querySelectorAll('.conn-type-label').forEach(function(e) {
         e.classList.remove('border-primary', 'bg-primary/10');
       });
@@ -442,14 +529,29 @@ const configOptionsMapJson = JSON.stringify(configOptionsMap);
         if (val === 'on') custom[key] = true;
       });
 
+      const defaultSettings = {};
+      const overrideSettings = {};
+
       document.querySelectorAll('[data-config-key]').forEach(function(el) {
         const key = el.dataset.configKey;
         const val = el.value;
         const opt = window.__configOptionsMap[key];
         if (opt && val !== opt.defaultValue) {
-          custom[key] = val;
+          const mode = getOptionMode(key);
+          if (mode === 'override') {
+            overrideSettings[key] = val;
+          } else {
+            defaultSettings[key] = val;
+          }
         }
       });
+
+      if (Object.keys(defaultSettings).length > 0) {
+        custom.default_settings = JSON.stringify(defaultSettings);
+      }
+      if (Object.keys(overrideSettings).length > 0) {
+        custom.override_settings = JSON.stringify(overrideSettings);
+      }
 
       submitBtn.disabled = true;
       submitText.textContent = 'Building...';
