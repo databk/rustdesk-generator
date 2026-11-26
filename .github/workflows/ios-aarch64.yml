@@ -154,7 +154,7 @@ jobs:
             mv "$f" "$dir/databk.txt"
           done
           grep -rl "custom\.txt" --include="*.rs" --include="*.dart" --include="*.py" --include="*.h" --include="*.cpp" . | while read -r f; do
-            sed -i 's/custom\.txt/databk.txt/g' "$f"
+            sed -i "" 's/custom\.txt/databk.txt/g' "$f"
           done
 
       - name: Install flutter
