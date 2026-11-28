@@ -9,6 +9,9 @@ env:
   RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503
   VERSION: "1.5.3"
 
+permissions:
+  contents: write
+
 jobs:
   generate_bridge:
     runs-on: ${{ matrix.job.os }}
@@ -40,7 +43,25 @@ jobs:
           submodules: recursive
           ref: ${{ env.VERSION }}
 
+      - name: Try restore bridge from Release
+        id: restore-bridge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="bridge-${{ env.VERSION }}-flutter${{ matrix.job.flutter-version }}"
+          echo "Bridge cache tag: ${TAG}"
+          mkdir -p ./bridge-cache
+          if gh release download "${TAG}" -R "${GITHUB_REPOSITORY}" -D ./bridge-cache -p "bridge-files.tar.gz" --clobber 2>/dev/null; then
+            echo "Restored bridge from Release"
+            tar xzf ./bridge-cache/bridge-files.tar.gz -C .
+            echo "SKIP_BRIDGE=true" >> "$GITHUB_ENV"
+          else
+            echo "Bridge not found in Release, will generate"
+          fi
+
       - name: Install prerequisites
+        if: env.SKIP_BRIDGE != 'true'
         run: |
           sudo apt-get install ca-certificates -y
           sudo apt-get update -y
@@ -60,6 +81,7 @@ jobs:
             wget
 
       - name: Install Rust toolchain
+        if: env.SKIP_BRIDGE != 'true'
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
@@ -67,17 +89,20 @@ jobs:
           components: "rustfmt"
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        if: env.SKIP_BRIDGE != 'true'
         with:
           prefix-key: bridge-${{ matrix.job.os }}
 
       - name: Cache Bridge
         id: cache-bridge
+        if: env.SKIP_BRIDGE != 'true'
         uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
         with:
           path: /tmp/flutter_rust_bridge
           key: bridge-${{ matrix.job.flutter-version }}
 
       - name: Install flutter
+        if: env.SKIP_BRIDGE != 'true'
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: "stable"
@@ -85,6 +110,7 @@ jobs:
           cache: true
 
       - name: Install flutter rust bridge deps
+        if: env.SKIP_BRIDGE != 'true'
         shell: bash
         run: |
           cargo install cargo-expand --version ${{ env.CARGO_EXPAND_VERSION }} --locked
@@ -100,9 +126,31 @@ jobs:
           pushd flutter && flutter pub get && popd
 
       - name: Run flutter rust bridge
+        if: env.SKIP_BRIDGE != 'true'
         run: |
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/macos/Runner/bridge_generated.h
           cp ./flutter/macos/Runner/bridge_generated.h ./flutter/ios/Runner/bridge_generated.h
+
+      - name: Upload bridge to Release
+        if: env.SKIP_BRIDGE != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="bridge-${{ env.VERSION }}-flutter${{ matrix.job.flutter-version }}"
+          tar czf bridge-files.tar.gz \
+            ./src/bridge_generated.rs \
+            ./src/bridge_generated.io.rs \
+            ./flutter/lib/generated_bridge.dart \
+            ./flutter/lib/generated_bridge.freezed.dart \
+            ./flutter/macos/Runner/bridge_generated.h \
+            ./flutter/ios/Runner/bridge_generated.h
+          if ! gh release view "${TAG}" -R "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release create "${TAG}" -R "${GITHUB_REPOSITORY}" \
+              --title "Bridge for ${{ env.VERSION }} (Flutter ${{ matrix.job.flutter-version }})" \
+              --notes "Auto-generated bridge files"
+          fi
+          gh release upload "${TAG}" -R "${GITHUB_REPOSITORY}" bridge-files.tar.gz --clobber
 
       - name: Upload Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
