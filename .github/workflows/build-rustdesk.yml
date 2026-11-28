@@ -87,6 +87,7 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+          ref: ${{ env.VERSION }}
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0

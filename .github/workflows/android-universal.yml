@@ -173,6 +173,7 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+          ref: ${{ env.VERSION }}
 
       - name: Checkout generator scripts
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.backend-url != '' }}

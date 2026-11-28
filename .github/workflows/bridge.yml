@@ -7,6 +7,7 @@ env:
   CARGO_EXPAND_VERSION: "1.0.95"
   FLUTTER_RUST_BRIDGE_VERSION: "1.80.1"
   RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503
+  VERSION: "1.5.3"
 
 jobs:
   generate_bridge:
@@ -37,6 +38,7 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+          ref: ${{ env.VERSION }}
 
       - name: Install prerequisites
         run: |
